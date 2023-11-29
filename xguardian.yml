@@ -57,6 +57,9 @@ jobs:
       - name: Verificar código
         uses: actions/checkout@v2
 
+      - name: XGuardian Actions Script
+        uses: username/xguardian-actions@v1.0.0
+
       - name: Fazer login na API e armazenar token
         run: |
           # Faz o login na API usando as variáveis de ambiente API_EMAIL e API_PASSWORD
