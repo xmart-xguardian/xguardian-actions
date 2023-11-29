@@ -3,7 +3,7 @@ description: "Este fluxo de trabalho realiza login na API do XGuardian, armazena
 author: "XGuardian"
 branding:
   icon: "icon.png"
-version: v1.0.0
+version: v23.5.0
 inputs:
   API_EMAIL:
     description: "O e-mail para autenticação na API."
@@ -36,7 +36,7 @@ inputs:
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   login_and_create_app:
@@ -48,17 +48,19 @@ jobs:
       API_TOKEN: ${{ secrets.API_TOKEN }}
       GH_TOKEN: ${{ secrets.GIT_TOKEN }}
       APP_NAME: ${{ github.event.repository.name }} # Definir o nome da aplicação como o nome do repositório GitHub
-      TEAM_ID: 370
-      SCAN_VERSION: "1.2"
+      TEAM_ID: "id-do-seu-time"
+      SCAN_VERSION: "nome-do-seu-scan"
       FILE_TYPE: "application/zip"
-      UPLOAD_URL: "teste"
+      UPLOAD_URL: "nome-da-url"
 
     steps:
+      - name: Use Node.js 16
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
       - name: Verificar código
         uses: actions/checkout@v2
-
-      - name: XGuardian Actions Script
-        uses: username/xguardian-actions@v1.0.0
 
       - name: Fazer login na API e armazenar token
         run: |
@@ -86,9 +88,11 @@ jobs:
             "token": "'"${API_TOKEN}"'",
             "app_name": "'"${APP_NAME}"'",
             "team_id": "'"${TEAM_ID}"'",
-            "languages": ["java"],
-            "description": "string",
-            "policy": 1
+            "languages": ["insira-a-linguagem"],
+            "description": "insira-a-descricao",
+            "policy": 1,
+            "policy_dast": 1,
+            "policy_container": 1
           }'
           RESPONSE=$(curl -sS -w "%{http_code}" -X POST "${CREATE_APP_URL}" \
             -H 'accept: application/json' \
