@@ -1,0 +1,112 @@
+name: Login na API, Armazenar Token e Verificar/Criar Aplicação
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  login_and_create_app:
+    runs-on: ubuntu-latest
+
+    env:
+      API_EMAIL: ${{ secrets.API_EMAIL }}
+      API_PASSWORD: ${{ secrets.API_PASSWORD }}
+      API_TOKEN: ${{ secrets.API_TOKEN }}
+      GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+      APP_NAME: ${{ github.event.repository.name }} # Definir o nome da aplicação como o nome do repositório GitHub
+      TEAM_ID: 370
+      SCAN_VERSION: "1.2"
+      FILE_TYPE: "application/zip"
+      UPLOAD_URL: "teste"
+
+    steps:
+      - name: Verificar código
+        uses: actions/checkout@v2
+
+      - name: Fazer login na API e armazenar token
+        run: |
+          # Faz o login na API usando as variáveis de ambiente API_EMAIL e API_PASSWORD
+          response=$(curl -X 'POST' 'https://auth.development.xguardianplatform.io/login' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "email": "'"${API_EMAIL}"'",
+              "password": "'"${API_PASSWORD}"'"
+            }' | jq -r '.token')
+          # Verifica se o token foi obtido com sucesso
+          if [ -n "$response" ] && [ "$response" != "null" ]; then
+            # Armazena o token como um segredo no GitHub Actions usando echo e gh
+            echo -n "$response" | gh secret set API_TOKEN
+            echo "Token armazenado com sucesso."
+          else
+            echo "Erro: Não foi possível obter o token de autenticação."
+            exit 1
+          fi
+      - name: Verificar e criar aplicação
+        run: |
+          CREATE_APP_URL="https://uploader-mvp.development.xguardianplatform.io/create_app"
+          DATA='{
+            "token": "'"${API_TOKEN}"'",
+            "app_name": "'"${APP_NAME}"'",
+            "team_id": "'"${TEAM_ID}"'",
+            "languages": ["java"],
+            "description": "string",
+            "policy": 1
+          }'
+          RESPONSE=$(curl -sS -w "%{http_code}" -X POST "${CREATE_APP_URL}" \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d "${DATA}")
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          # Extrair o código de status "400" usando jq
+          HTTP_STATUS_400=$(echo "$HTTP_STATUS" | jq '. | select(. == 400)')
+          if [ -z "$HTTP_STATUS_400" ]; then
+            echo "Erro desconhecido: Não foi possível obter o código de status 400."
+          else
+            echo "O código de status HTTP é 400 (Bad Request). A aplicação já existe."
+          fi
+      - name: Fazer a requisição GET para obter aplicação
+        run: |
+          RESPONSE=$(curl -sS -X GET \
+            'https://uploader-mvp.development.xguardianplatform.io/get_apps?token='"${API_TOKEN}"'' \
+            -H 'accept: application/json')
+          # Analisar a resposta JSON em busca do APP_NAME
+          APP_ID=$(echo "$RESPONSE" | jq -r '.[] | select(.name == "'"${APP_NAME}"'") | .id')
+          if [ -z "$APP_ID" ]; then
+            echo "Aplicação com nome '${APP_NAME}' não encontrada."
+            exit 1
+          fi
+          echo "ID da aplicação: $APP_ID"
+          echo "APP_ID=$APP_ID" >> $GITHUB_ENV # Definir a variável de ambiente corretamente
+      - name: Usar o ID da aplicação em outro passo
+        run: |
+          echo "ID da aplicação obtido: $APP_ID"
+          # Você pode usar a variável $APP_ID em outros passos deste trabalho
+
+      - name: Obter URL de upload
+        run: |
+          UPLOAD_URL=$(curl -sS -X POST 'https://uploader-mvp.development.xguardianplatform.io/upload-url' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "token": "'"${API_TOKEN}"'",
+              "app_id": "'"${APP_ID}"'",
+              "scan_version": "'"${SCAN_VERSION}"'",
+              "file_type": "'"${FILE_TYPE}"'",
+              "sca": "true", 
+              "sast": "true" 
+            }' | jq -r '.url')
+            echo "URL de Upload: ${UPLOAD_URL}"
+            echo "UPLOAD_URL=${UPLOAD_URL}" >> $GITHUB_ENV
+      - name: Zip files
+        run: |
+          zip -r "${APP_NAME}.zip" .
+
+      - name: Upload da aplicação para o scan
+        run: |
+          filePath="./${{ env.APP_NAME }}.zip"
+
+          curl --progress-bar --location --request PUT "${{ env.UPLOAD_URL }}" \
+            --header 'Content-Type: application/zip' \
+            --data-binary "@${filePath}"
