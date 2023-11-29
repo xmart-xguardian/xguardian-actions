@@ -1,4 +1,36 @@
 name: Login na API, Armazenar Token e Verificar/Criar Aplicação
+description: "Este fluxo de trabalho realiza login na API do XGuardian, armazena o token de usuário, verifica/cria uma aplicação e faz upload do .zip para scan de vulnerabilidades SAST/SCA."
+author: "XGuardian"
+branding:
+  icon: "icon.png"
+inputs:
+  API_EMAIL:
+    description: "O e-mail para autenticação na API."
+    required: true
+  API_PASSWORD:
+    description: "A senha para autenticação na API."
+    required: true
+  API_TOKEN:
+    description: "O token de autenticação obtido durante o login."
+    required: true
+  GH_TOKEN:
+    description: "Token de acesso ao Github."
+    required: true
+  APP_NAME:
+    description: "Nome da aplicação."
+    required: true
+  TEAM_ID:
+    description: "ID da equipe."
+    required: true
+  SCAN_VERSION:
+    description: "Versão do scan."
+    required: true
+  FILE_TYPE:
+    description: "Tipo de arquivo para upload."
+    required: true
+  UPLOAD_URL:
+    description: "URL para upload do scan."
+    required: true
 
 on:
   push:
