@@ -35,7 +35,7 @@ Descrição: ID da equipe.
 Obrigatório: true
 
 SCAN_VERSION
-Descrição: Versão da varredura.
+Descrição: Versão do scan.
 Obrigatório: true
 
 FILE_TYPE
@@ -43,7 +43,7 @@ Descrição: Tipo de arquivo para upload.
 Obrigatório: true
 
 UPLOAD_URL
-Descrição: URL para upload da varredura.
+Descrição: URL para upload do scan.
 Obrigatório: true
 
 - Acionadores do Fluxo de Trabalho
