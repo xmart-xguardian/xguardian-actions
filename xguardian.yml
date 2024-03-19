@@ -65,7 +65,7 @@ jobs:
       - name: Fazer login na API e armazenar token
         run: |
           # Faz o login na API usando as variáveis de ambiente API_EMAIL e API_PASSWORD
-          response=$(curl -X 'POST' 'https://auth.development.xguardianplatform.io/login' \
+          response=$(curl -X 'POST' 'https://auth.xguardianplatform.io/login' \
             -H 'accept: application/json' \
             -H 'Content-Type: application/json' \
             -d '{
@@ -83,7 +83,7 @@ jobs:
           fi
       - name: Verificar e criar aplicação
         run: |
-          CREATE_APP_URL="https://uploader-mvp.development.xguardianplatform.io/create_app"
+          CREATE_APP_URL="https://uploader-mvp.xguardianplatform.io/create_app"
           DATA='{
             "token": "'"${API_TOKEN}"'",
             "app_name": "'"${APP_NAME}"'",
@@ -109,7 +109,7 @@ jobs:
       - name: Fazer a requisição GET para obter aplicação
         run: |
           RESPONSE=$(curl -sS -X GET \
-            'https://uploader-mvp.development.xguardianplatform.io/get_apps?token='"${API_TOKEN}"'' \
+            'https://uploader-mvp.xguardianplatform.io/get_apps_total?token='"${API_TOKEN}"'' \
             -H 'accept: application/json')
           # Analisar a resposta JSON em busca do APP_NAME
           APP_ID=$(echo "$RESPONSE" | jq -r '.[] | select(.name == "'"${APP_NAME}"'") | .id')
@@ -126,7 +126,7 @@ jobs:
 
       - name: Obter URL de upload
         run: |
-          UPLOAD_URL=$(curl -sS -X POST 'https://uploader-mvp.development.xguardianplatform.io/upload-url' \
+          UPLOAD_URL=$(curl -sS -X POST 'https://uploader-mvp.xguardianplatform.io/upload-url' \
             -H 'accept: application/json' \
             -H 'Content-Type: application/json' \
             -d '{
