@@ -1,4 +1,4 @@
-name: XGuardian
+name: XGuardian Scanning
 description: "Processo: login na API XGuardian, token, app, scan .zip SAST/SCA."
 author: "XGuardian"
 branding:
