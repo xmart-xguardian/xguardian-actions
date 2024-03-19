@@ -1,5 +1,5 @@
 name: Login na API, Armazenar Token e Verificar/Criar Aplicação
-description: "Este fluxo de trabalho realiza login na API do XGuardian, armazena o token de usuário, verifica/cria uma aplicação e faz upload do .zip para scan de vulnerabilidades SAST/SCA."
+description: "Processo: login na API XGuardian, token, app, scan .zip SAST/SCA."
 author: "XGuardian"
 branding:
   icon: "icon.png"
