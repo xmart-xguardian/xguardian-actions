@@ -1,4 +1,4 @@
-name: Login na API, Armazenar Token e Verificar/Criar Aplicação
+name: XGuardian
 description: "Processo: login na API XGuardian, token, app, scan .zip SAST/SCA."
 author: "XGuardian"
 branding:
