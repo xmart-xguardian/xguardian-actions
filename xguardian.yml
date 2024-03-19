@@ -3,7 +3,7 @@ description: "Este fluxo de trabalho realiza login na API do XGuardian, armazena
 author: "XGuardian"
 branding:
   icon: "icon.png"
-version: v23.5.0
+version: v24.2.0
 inputs:
   API_EMAIL:
     description: "O e-mail para autenticação na API."
