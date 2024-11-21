@@ -1,4 +1,7 @@
+test 1
+
 # xguardian-actions
+
 Github Actions Implementation Repository
 
 #This repository is being used to store the implementation script for the login, application verification/creation, and vulnerability scanning processes of XGuardian for Github Actions.
@@ -9,7 +12,7 @@ Autor: XGuardian
 Versão: v23.5.0
 
 - Entradas
-  
+
 API_EMAIL
 Descrição: O e-mail para autenticação na API do XGuardian.
 Obrigatório: Sim
@@ -54,7 +57,7 @@ Obrigatório: Sim
 Observações: Variável criada previamente para atribuição da URL de upload do scan, pode-se atribuir qualquer valor, pois ela será sobrescrita posteriormente. Faz parte do processo de upload do arquivo.
 
 - Acionadores do Fluxo de Trabalho
-  
+
 O fluxo de trabalho é acionado em pushes para a branch main (ou qualquer outra que o usuário preferir).
 
 - Etapas do Fluxo de Trabalho
