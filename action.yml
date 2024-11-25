@@ -5,21 +5,83 @@ author: "Xmart Solutions"
 branding:
   icon: "XGuardian.png"
   color: "purple" # Cor roxo900 [#2C1161] - XGuardian
-version: v24.11.2
+version: v24.11.3
 
 inputs:
-  API_EMAIL:
-    description: "O e-mail para login/autenticação na API."
-    required: true
-  API_PASSWORD:
-    description: "A senha para login/autenticação na API."
-    required: true
-  API_TOKEN:
-    description: "O token de autenticação obtido durante o login."
-    required: true
-  GH_TOKEN:
-    description: "Token de acesso ao Github."
-    required: true
+  secrets:
+    API_EMAIL:
+      description: "O e-mail para login/autenticação na API."
+      required: true
+    API_PASSWORD:
+      description: "A senha para login/autenticação na API."
+      required: true
+    API_TOKEN:
+      description: "O token de autenticação obtido durante o login."
+      required: true
+    GH_TOKEN:
+      description: "Token de acesso ao Github."
+      required: true
+  variables:
+    APP_NAME:
+      description: "O nome da aplicação."
+      default: ${{ github.event.repository.name }}
+      required: true
+    TEAM_ID:
+      description: "O(s) ID(s) da(s) equipe(s)."
+      default: "[1]"
+      required: true
+    LANGUAGES:
+      description: "A(s) linguagem(ns) da aplicação."
+      default: '["JavaScript"]'
+      required: true
+    DESCRIPTION:
+      description: "A descrição da aplicação."
+      default: "Aplicação criada através do GitHub Actions - XGuardian"
+      required: true
+    POLICY_SAST:
+      description: "O ID da política de SAST."
+      default: 0
+      required: false
+    POLICY_SCA:
+      description: "O ID da política de SCA."
+      default: 0
+      required: false
+    POLICY_DAST:
+      description: "O ID da política de DAST."
+      default: 0
+      required: false
+    POLICY_CONTAINER:
+      description: "O ID da política de Container."
+      default: 0
+      required: false
+    MICROSERVICES:
+      description: "A aplicação possui microserviços?"
+      default: false
+      required: false
+    MICROSERVICES_DATA:
+      description: "O(s) dados do(s) microserviço(s): Nome(s) e linguagem(ns)."
+      default: '[{"name": "MS1", "language": ["JavaScript"]}, {"name": "MS2", "language": ["TypeScript"]}, {"name": "MS3", "language": ["Python"]}]'
+      required: false
+    SAST:
+      description: "Vai ser feito o scan SAST?"
+      default: "true"
+      required: true
+    SCA:
+      description: "Vai ser feito o scan SCA?"
+      default: "true"
+      required: true
+    TRANSLATE:
+      description: "O relatório será traduzido para português do Brasil?"
+      default: "false"
+      required: true
+    EXCLUDE:
+      description: "Diretórios ou arquivos a serem excluídos do scan."
+      default: ""
+      required: false
+    PDF:
+      description: "O relatório será gerado em PDF detalhado?"
+      default: "false"
+      required: true
 
 on:
   push:
@@ -31,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      APP_NAME: ${{ github.event.repository.name }}
+      APP_NAME: ${{ vars.APP_NAME }}
       GH_SHA: ${{ github.sha }}
       API_TOKEN: ${{ secrets.API_TOKEN }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -91,25 +153,27 @@ jobs:
       - name: Verificar se a aplicação existe, caso contrário, cria a aplicação
         env:
           # Atribui as equipes baseado no ID(s) da(s) equipe(s)
-          TEAM_ID: "[1,36]"
+          TEAM_ID: ${{ vars.TEAM_ID }}
 
           # Define as linguagens da aplicação
-          LANGUAGES: '["JavaScript", "TypeScript", "Python"]'
+          LANGUAGES: ${{ vars.LANGUAGES }}
 
           # Define a descrição da aplicação
-          DESCRIPTION: "Application scanned via GitHub Actions"
+          DESCRIPTION: ${{ vars.DESCRIPTION }}
 
           # ID das políticas de SAST, SCA, DAST e Container
-          POLICY_SAST: 0
-          POLICY_SCA: 0
-          POLICY_DAST: 0
-          POLICY_CONTAINER: 0
+          POLICY_SAST: ${{ vars.POLICY_SAST }}
+          POLICY_SCA: ${{ vars.POLICY_SCA }}
+          POLICY_DAST: ${{ vars.POLICY_DAST }}
+          POLICY_CONTAINER: ${{ vars.POLICY_CONTAINER }}
 
           # Possui microserviços?
-          MICROSERVICES: false # Altere para true caso possua microserviços
-          MICROSERVICES_DATA: '[{"name": "MS1", "language": ["JavaScript"]}, {"name": "MS2", "language": ["TypeScript"]}, {"name": "MS3", "language": ["Python"]}]'
+          MICROSERVICES: ${{ vars.MICROSERVICES }}
+          MICROSERVICES_DATA: ${{ vars.MICROSERVICES_DATA }}
 
         run: |
+          CREATE_APP_URL="https://uploader-mvp.xguardianplatform.io/create_app"
+
           DATA=$(cat << EOF
           {
             "app_name": "${APP_NAME}",
@@ -121,14 +185,12 @@ jobs:
             "policy_sca": ${POLICY_SCA},
             "policy_dast": ${POLICY_DAST},
             "policy_container": ${POLICY_CONTAINER},
-            "microservices": $([[ "${MICROSERVICES}" == "true" ]] && echo "true" || echo "false")
+            "microservices": $([[ "${MICROSERVICES}" == "true" ]] && echo true || echo false)
             $([[ "${MICROSERVICES}" == "true" ]] && echo ',
             "microservices_data": ${MICROSERVICES_DATA}')
           }
           EOF
           )
-
-          CREATE_APP_URL="https://uploader-mvp.xguardianplatform.io/create_app"
 
           RESPONSE=$(curl -sS -X POST "${CREATE_APP_URL}" \
             -H 'accept: application/json' \
@@ -183,24 +245,20 @@ jobs:
       - name: Obter URL de upload
         env:
           # Define se vai ser feito o scan de SAST e SCA
-          SAST: "true"
-          SCA: "true"
+          SAST: ${{ vars.SAST }}
+          SCA: ${{ vars.SCA }}
 
           # Define se o relatório será traduzido para o português do Brasil
-          TRANSLATE: "false"
+          TRANSLATE: ${{ vars.TRANSLATE }}
 
           # Define se vai ser excluido algum diretório ou arquivo do scan
-          EXCLUDE: ""
+          EXCLUDE: ${{ vars.EXCLUDE }}
 
           # Define se o relatório será gerado em PDF detalhado
-          PDF: "false"
-
-          # Configurações de microserviços
-          MICRO_ID: 0
-          MICROSERVICES: "false"
+          PDF: ${{ vars.PDF }}
 
           FILE_TYPE: "application/zip"
-          SCAN_VERSION: ${{ format('{0}{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
+          SCAN_VERSION: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
         run: |
           echo "Debug: SCAN_VERSION: ${SCAN_VERSION}"
 
