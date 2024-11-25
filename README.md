@@ -10,12 +10,10 @@ Este workflow é configurado para executar uma varredura de segurança usando o 
   - `API_EMAIL`: Email para login na API do XGuardian.
   - `API_PASSWORD`: Senha para login na API do XGuardian.
 
-> **ℹ️ Info**
+> **ℹ️ Em caso de dúvidas sobre:**
 >
-> **Em caso de dúvidas sobre:**
->
-> - Como adicionar os segredos, acesse: [Creating secrets for a repository - GitHub Docs](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository).
-> - Como gerar o GH Token, acesse: [Creating a fine-grained personal access token - GitHub Docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token).
+> - Como adicionar os segredos, acesse: [Creating secrets for a repository](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository)
+> - Como gerar o Token do GitHub, acesse: [Creating a fine-grained personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token).
 
 ## Configuração ⚙️
 
