@@ -10,7 +10,7 @@ Este workflow é configurado para executar uma varredura de segurança usando o 
   - `API_TOKEN`: Token de autenticação para a API do XGuardian.
     - ℹ️ O token de autenticação é obtido após o login na API do XGuardian.
   - `GH_TOKEN`: Token de autenticação do GitHub.
-    - ℹ️ O token de autenticação é obtido após a criação de um token pessoal no GitHub. Para criar um token pessoal, acesse: [Creating a fine-grained personal access token](https://docs.github.com/pt/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token).
+    - ℹ️ Para criar um token pessoal, acesse: [Creating a fine-grained personal access token](https://docs.github.com/pt/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token).
   - `API_EMAIL`: Email para login na API do XGuardian.
     - ℹ️ O email é o mesmo utilizado para login na plataforma do XGuardian.
   - `API_PASSWORD`: Senha para login na API do XGuardian.
