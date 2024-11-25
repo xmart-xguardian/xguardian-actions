@@ -7,7 +7,7 @@ Este Action é configurado para executar uma varredura de segurança usando o XG
 - [Pré-requisitos](#pré-requisitos-)
   - [Segredos](#segredos)
   - [Variáveis de Ambiente](#variáveis-de-ambiente)
-- [Configuração](#configuração-)
+- [Configuração](configura%C3%A7%C3%A3o-%EF%B8%8F)
 - [Execução](#execução-)
 - [Debugging](#debugging-)
 - [Notas](#notas-)
