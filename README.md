@@ -1,7 +1,5 @@
 # Workflow de Scanning com XGuardian
 
-## Descrição
-
 Este workflow é configurado para executar uma varredura de segurança usando o XGuardian sempre que houver um push na branch `main`. Ele verifica o código fonte, faz login na API do XGuardian, cria ou verifica a existência de uma aplicação, e realiza o upload dos arquivos para análise.
 
 ## Pré-requisitos
