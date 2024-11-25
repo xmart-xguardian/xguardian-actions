@@ -4,16 +4,18 @@ Este workflow é configurado para executar uma varredura de segurança usando o 
 
 ## Pré-requisitos 📋
 
+> **ℹ️ Info:** Para adicionar os segredos, acesse: [Creating secrets for a repository](https://docs.github.com/pt/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository).
+
 - **GitHub Secrets**: Certifique-se de que os seguintes segredos estão configurados no repositório:
   - `API_TOKEN`: Token de autenticação para a API do XGuardian.
+    - **ℹ️ Info:** O token de autenticação é obtido após o login na API do XGuardian.
   - `GH_TOKEN`: Token de autenticação do GitHub.
+    - **ℹ️ Info:** O token de autenticação é obtido após a criação de um token pessoal no GitHub.
+    - **ℹ️ Info:** Para criar um token pessoal, acesse: [Creating a fine-grained personal access token](https://docs.github.com/pt/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token).
   - `API_EMAIL`: Email para login na API do XGuardian.
+    - **ℹ️ Info:** O email é o mesmo utilizado para login na plataforma do XGuardian.
   - `API_PASSWORD`: Senha para login na API do XGuardian.
-
-> **ℹ️ Em caso de dúvidas sobre:**
->
-> - Como adicionar os segredos, acesse: [Creating secrets for a repository](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository)
-> - Como gerar o Token do GitHub, acesse: [Creating a fine-grained personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token).
+    - **ℹ️ Info:** A senha é a mesma utilizada para login na plataforma do XGuardian.
 
 ## Configuração ⚙️
 
