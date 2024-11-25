@@ -4,8 +4,8 @@ author: "XGuardian"
 
 branding:
   icon: "XGuardian.png"
-  color: "#2C1161" # Cor roxo900 - XGuardian
-version: v24.11.0
+  color: "purple" # Cor roxo900 [#2C1161] - XGuardian
+version: v24.11.1
 
 inputs:
   API_EMAIL:
