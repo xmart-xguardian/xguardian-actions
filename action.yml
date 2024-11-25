@@ -1,11 +1,11 @@
 name: XGuardian Scanning
 description: "Processo: login, criação/verificação de aplicação, scan .zip SAST/SCA."
-author: "XGuardian"
+author: "Xmart Solutions"
 
 branding:
   icon: "XGuardian.png"
   color: "purple" # Cor roxo900 [#2C1161] - XGuardian
-version: v24.11.1
+version: v24.11.2
 
 inputs:
   API_EMAIL:
@@ -190,7 +190,7 @@ jobs:
           TRANSLATE: "false"
 
           # Define se vai ser excluido algum diretório ou arquivo do scan
-          EXCLUDE: ".js, .tar, .py"
+          EXCLUDE: ""
 
           # Define se o relatório será gerado em PDF detalhado
           PDF: "false"
