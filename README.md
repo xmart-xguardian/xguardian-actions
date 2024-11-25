@@ -1,8 +1,8 @@
-# Workflow de Scanning com XGuardian
+# Scan Automático com XGuardian 🔍
 
 Este workflow é configurado para executar uma varredura de segurança usando o XGuardian sempre que houver um push na branch `main`. Ele verifica o código fonte, faz login na API do XGuardian, cria ou verifica a existência de uma aplicação, e realiza o upload dos arquivos para análise.
 
-## Pré-requisitos
+## Pré-requisitos 📋
 
 - **GitHub Secrets**: Certifique-se de que os seguintes segredos estão configurados no repositório:
   - `API_TOKEN`: Token de autenticação para a API do XGuardian.
@@ -10,7 +10,14 @@ Este workflow é configurado para executar uma varredura de segurança usando o 
   - `API_EMAIL`: Email para login na API do XGuardian.
   - `API_PASSWORD`: Senha para login na API do XGuardian.
 
-## Configuração
+> **ℹ️ Info**
+>
+> **Em caso de dúvidas sobre:**
+>
+> - Como adicionar os segredos, acesse: [Creating secrets for a repository - GitHub Docs](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository).
+> - Como gerar o GH Token, acesse: [Creating a fine-grained personal access token - GitHub Docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token).
+
+## Configuração ⚙️
 
 1. **Node.js**: O workflow utiliza a versão mais recente do Node.js. Certifique-se de que todas as dependências do projeto são compatíveis com a versão mais recente.
 
@@ -18,7 +25,7 @@ Este workflow é configurado para executar uma varredura de segurança usando o 
 
 3. **Microserviços**: Se o projeto utiliza microserviços, ajuste a variável `MICROSERVICES` para `true` e forneça os dados dos microserviços em `MICROSERVICES_DATA`.
 
-## Execução
+## Execução 🚀
 
 - **Trigger**: O workflow é acionado automaticamente em cada push na branch `main`.
 - **Passos**:
@@ -30,12 +37,12 @@ Este workflow é configurado para executar uma varredura de segurança usando o 
   6. Zipa os arquivos do projeto, excluindo diretórios e arquivos desnecessários.
   7. Faz o upload do arquivo zipado para a URL de upload.
 
-## Debugging
+## Debugging 🐞
 
 - Mensagens de debug são impressas durante a execução para ajudar na identificação de problemas.
 - Verifique os logs do GitHub Actions para detalhes sobre falhas ou erros.
 
-## Notas
+## Notas 📝
 
 - Certifique-se de que o repositório possui permissões adequadas para acessar os segredos e realizar as operações necessárias.
 - Ajuste as configurações de exclusão de arquivos e diretórios conforme necessário para o seu projeto.
