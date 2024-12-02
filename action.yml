@@ -5,7 +5,7 @@ author: "Xmart Solutions"
 branding:
   icon: "XGuardian.png"
   color: purple # Cor roxo900 [#2C1161] - XGuardian
-version: v24.12.0
+version: v24.12.1
 
 inputs:
   api_email:
@@ -445,46 +445,65 @@ runs:
         APP_NAME: ${{ inputs.app_name }}
       run: |
         echo "Debug: Buscando scan com versão: ${SCAN_VERSION}"
+        echo "Debug: APP_ID: ${APP_ID}"
 
         # URL da API com paginação
         API_URL="https://reporter.xguardianplatform.io/get_scan_pagination/${APP_ID}?page=1&items_per_page=10"
+        echo "Debug: URL da API: ${API_URL}"
 
         # Tenta obter o scan ID por até 5 minutos (30 tentativas, 10 segundos cada)
         for i in {1..30}; do
           echo "Tentativa $i de 30..."
           
+          # Captura a resposta completa
           RESPONSE=$(curl -sS -X GET "${API_URL}" \
             -H 'accept: application/json' \
             -H "Authorization: Bearer ${API_TOKEN}")
           
-          # Busca o ID do scan com o SCAN_VERSION específico
-          SCAN_ID=$(echo "$RESPONSE" | jq -r --arg version "$SCAN_VERSION" '.data[] | select(.scanuuid == $version) | .id')
+          # Debug da resposta
+          echo "Debug: Resposta da API:"
+          echo "$RESPONSE" | jq '.' || echo "Resposta não é JSON válido: $RESPONSE"
           
-          if [ -n "$SCAN_ID" ] && [ "$SCAN_ID" != "null" ]; then
-            # Define as variáveis no ambiente
-            {
-              echo "APP_ID=${APP_ID}"
-              echo "SCAN_ID=${SCAN_ID}"
-              echo "SCAN_URL=https://shield.xguardianplatform.io/aplicacoes/${APP_ID}/scans"
-            } >> "$GITHUB_ENV"
+          # Verifica se a resposta tem a estrutura esperada
+          if [ "$(echo "$RESPONSE" | jq -r 'has("data")')" = "true" ]; then
+            # Busca o ID do scan com o SCAN_VERSION específico
+            SCAN_ID=$(echo "$RESPONSE" | jq -r --arg version "$SCAN_VERSION" '.data[] | select(.scanuuid == $version) | .id')
             
-            # Cria arquivo de estado com os dados
-            echo "${APP_ID}:${SCAN_ID}" > /tmp/xguardian_scan_complete
-            
-            echo "::notice title=XGuardian Scan::Scan iniciado com sucesso!"
-            echo "::notice title=XGuardian Scan::Aplicação: ${APP_NAME}"
-            echo "::notice title=XGuardian Scan::ID da Aplicação (APP_ID): ${APP_ID}"
-            echo "::notice title=XGuardian Scan::ID do Scan (SCAN_ID): ${SCAN_ID}"
-            break
+            if [ -n "$SCAN_ID" ] && [ "$SCAN_ID" != "null" ]; then
+              # Define as variáveis no ambiente
+              {
+                echo "APP_ID=${APP_ID}"
+                echo "SCAN_ID=${SCAN_ID}"
+                echo "SCAN_URL=https://shield.xguardianplatform.io/aplicacoes/${APP_ID}/scans"
+              } >> "$GITHUB_ENV"
+              
+              # Cria arquivo de estado com os dados
+              echo "${APP_ID}:${SCAN_ID}" > /tmp/xguardian_scan_complete
+              
+              echo "::notice title=XGuardian Scan::Scan iniciado com sucesso!"
+              echo "::notice title=XGuardian Scan::Aplicação: ${APP_NAME}"
+              echo "::notice title=XGuardian Scan::ID da Aplicação (APP_ID): ${APP_ID}"
+              echo "::notice title=XGuardian Scan::ID do Scan (SCAN_ID): ${SCAN_ID}"
+              break
+            else
+              echo "Debug: SCAN_ID não encontrado nesta tentativa"
+              echo "Debug: Procurando por versão: $SCAN_VERSION"
+              echo "Debug: Scans disponíveis:"
+              echo "$RESPONSE" | jq -r '.data[] | {scanuuid, id}'
+            fi
           else
-            echo "Scan ID ainda não encontrado. Aguardando..."
-            sleep 10
+            echo "Debug: Resposta não contém a propriedade 'data'"
           fi
+          
+          echo "Scan ID ainda não encontrado. Aguardando..."
+          sleep 10
         done
 
         # Verifica se o SCAN_ID foi encontrado
         if [ -z "$SCAN_ID" ] || [ "$SCAN_ID" == "null" ]; then
           echo "::error title=XGuardian Scan::Não foi possível encontrar o ID do Scan após múltiplas tentativas."
+          echo "::error title=XGuardian Scan::Última resposta da API:"
+          echo "$RESPONSE"
           exit 1
         fi
 
