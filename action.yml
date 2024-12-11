@@ -5,6 +5,7 @@ author: "Xmart Solutions"
 branding:
   icon: "XGuardian.png"
   color: purple # Cor roxo900 [#2C1161] - XGuardian
+  label: Security Scanning
 version: v24.12.1
 
 inputs:
