@@ -1,5 +1,5 @@
 name: XGuardian Scanning
-description: "Executa análise de segurança automatizada (SAST/SCA) em repositórios GitHub, incluindo autenticação, gerenciamento de aplicações e upload de código para escaneamento na plataforma XGuardian."
+description: "Realiza o upload de repositórios GitHub e executa análise de segurança automatizada (SAST/SCA) na plataforma XGuardian."
 author: "Xmart Solutions"
 
 branding:
