@@ -449,7 +449,7 @@ runs:
         for i in {1..3}; do
           sleep 10
           echo "$i tentativa"
-        fi
+        done
         
         echo "Debug: Buscando scan com versão: ${SCAN_VERSION}"
         echo "Debug: APP_ID: ${APP_ID}"
