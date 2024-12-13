@@ -5,6 +5,7 @@ author: "Xmart Solutions"
 branding:
   icon: "XGuardian.png"
   color: purple # Cor roxo900 [#2C1161] - XGuardian
+  label: Security Scanning
 version: v24.12.1
 
 inputs:
@@ -444,7 +445,7 @@ runs:
         SCAN_VERSION: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
         APP_NAME: ${{ inputs.app_name }}
       run: |
-        sleep 15s
+        sleep 15
         echo "Debug: Buscando scan com versão: ${SCAN_VERSION}"
         echo "Debug: APP_ID: ${APP_ID}"
 
