@@ -445,7 +445,12 @@ runs:
         SCAN_VERSION: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
         APP_NAME: ${{ inputs.app_name }}
       run: |
-        sleep 15
+        echo "Aguardando 30 segundos"
+        for i in {1..3}; do
+          sleep 10
+          echo "$i tentativa"
+        fi
+        
         echo "Debug: Buscando scan com versão: ${SCAN_VERSION}"
         echo "Debug: APP_ID: ${APP_ID}"
 
