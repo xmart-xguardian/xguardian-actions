@@ -1,5 +1,5 @@
 name: XGuardian Scanning
-description: "Realize análises de segurança (SAST/SCA ou DAST) de forma automatizada direto do VSCode para plataforma XGuardian."
+description: "Realize análises de segurança (SAST/SCA ou DAST) de forma automatizada direto do Github Actions para plataforma XGuardian."
 author: "Xmart Solutions"
 
 branding:
