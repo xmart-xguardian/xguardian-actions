@@ -74,17 +74,17 @@ inputs:
   # Configurações para o scan DAST
   site_url:
     description: "O URL do site para o scan DAST."
-    default: '""'
+    default: ""
     required: false
     type: string
   auth_url:
     description: "O URL de autenticação/login para o scan DAST."
-    default: '""'
+    default: ""
     required: false
     type: string
   logout_url:
     description: "O URL de logout para o scan DAST."
-    default: '""'
+    default: ""
     required: false
     type: string
   auth_exist:
@@ -94,19 +94,19 @@ inputs:
     type: boolean
   user_login:
     description: "O usuário para autenticação."
-    default: '""'
+    default: ""
     required: false
     type: string
   password_login:
     description: "A senha para autenticação."
-    default: '""'
+    default: ""
     required: false
     type: string
 
   # Configurações adicionais para o scan
   translate:
     description: "O relatório será traduzido para português do Brasil?"
-    default: '"false"'
+    default: "false"
     type: string
   exclude:
     description: "Diretórios ou arquivos a serem excluídos do scan."
