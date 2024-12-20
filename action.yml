@@ -1,14 +1,16 @@
 name: XGuardian Scanning
-description: "Realiza o upload de repositórios GitHub e executa análise de segurança automatizada (SAST/SCA) na plataforma XGuardian."
+description: "Realize análises de segurança (SAST/SCA ou DAST) de forma automatizada direto do Github Actions para plataforma XGuardian."
 author: "Xmart Solutions"
 
 branding:
   icon: "XGuardian.png"
   color: purple # Cor roxo900 [#2C1161] - XGuardian
   label: Security Scanning
-version: v24.12.1
+version: v24.12.3
 
 inputs:
+  # Variáveis de segredo obrigatórias
+  # Email, senha, token de autenticação e token do GitHub
   api_email:
     description: "O e-mail para login/autenticação na API."
     required: true
@@ -21,12 +23,15 @@ inputs:
   gh_token:
     description: "Token de acesso ao Github necessário para utilizar o comando gh CLI."
     required: true
+
+  # Nome da aplicação (default: nome do repositório)
+  # Usado para criar a aplicação no XGuardian
   app_name:
     description: "O nome da aplicação."
     required: true
-  scan_directory:
-    description: "Diretório que será zipado para o scan (ex: 'dist' para código buildado)"
-    default: "." # Root do projeto
+
+  # Opcionais (mas, com valores default)
+  # Configurações para criar a aplicação no XGuardian (caso não exista)
   team_id:
     description: "O(s) ID(s) da(s) equipe(s)."
     default: "[1]"
@@ -45,30 +50,64 @@ inputs:
   policy_dast:
     description: "O ID da política de DAST."
     default: "0"
-  policy_container:
-    description: "O ID da política de Container."
-    default: "0"
   microservices:
     description: "A aplicação possui microserviços?"
     default: "false"
   microservices_data:
     description: "O(s) dados do(s) microserviço(s): Nome(s) e linguagem(ns)."
     default: '[{"name": "MS1", "language": ["JavaScript"]}]'
+
+  # Seleção do tipo de scan (SAST e/ou SCA ou DAST)
   sast:
-    description: "Vai ser feito o scan SAST?"
-    default: '"true"'
-    type: string
-    pattern: "^true|false$"
-  sca:
-    description: "Vai ser feito o scan SCA?"
+    description: "Vai ser realizado o scan SAST?"
     default: '"false"'
     type: string
-    pattern: "^true|false$"
+  sca:
+    description: "Vai ser realizado o scan SCA?"
+    default: '"false"'
+    type: string
+  dast:
+    description: "Vai ser realizado o scan DAST?"
+    default: '"false"'
+    type: string
+
+  # Configurações para o scan DAST
+  site_url:
+    description: "O URL do site para o scan DAST."
+    default: '""'
+    required: false
+    type: string
+  auth_url:
+    description: "O URL de autenticação/login para o scan DAST."
+    default: '""'
+    required: false
+    type: string
+  logout_url:
+    description: "O URL de logout para o scan DAST."
+    default: '""'
+    required: false
+    type: string
+  auth_exist:
+    description: "O site possui autenticação?"
+    default: false
+    required: false
+    type: boolean
+  user_login:
+    description: "O usuário para autenticação."
+    default: '""'
+    required: false
+    type: string
+  password_login:
+    description: "A senha para autenticação."
+    default: '""'
+    required: false
+    type: string
+
+  # Configurações adicionais para o scan
   translate:
     description: "O relatório será traduzido para português do Brasil?"
     default: '"false"'
     type: string
-    pattern: "^true|false$"
   exclude:
     description: "Diretórios ou arquivos a serem excluídos do scan."
     default: '""'
@@ -76,7 +115,11 @@ inputs:
     description: "O relatório será gerado em PDF detalhado?"
     default: '"false"'
     type: string
-    pattern: "^true|false$"
+
+  # Configurações opcionais (caso o usuário deseje)
+  scan_directory:
+    description: "Diretório que será zipado para o scan (ex: 'dist' para código buildado)"
+    default: "." # Root do projeto
   save_vulns:
     description: "Permitir salvar vulnerabilidades no banco de dados?"
     default: "false"
@@ -157,46 +200,28 @@ runs:
       env:
         API_EMAIL: ${{ inputs.api_email }}
         API_PASSWORD: ${{ inputs.api_password }}
-        API_TOKEN: ${{ inputs.api_token }}
         GITHUB_TOKEN: ${{ inputs.gh_token }}
       run: |
         # Remover ou comentar estes logs de debug em produção
         echo "Debug: API_EMAIL: ${API_EMAIL}"
         echo "Debug: API_PASSWORD: ${API_PASSWORD}"
-        echo "Debug: API_TOKEN: ${API_TOKEN}"
 
-        NEED_NEW_TOKEN=true
-        if [ -n "$API_TOKEN" ]; then
-          # Testa para verificar se o token ainda é válido
-          TEST_RESPONSE=$(curl -sS -X GET 'https://uploader-mvp.xguardianplatform.io/get_apps_total' \
-            -H "Authorization: Bearer ${API_TOKEN}" \
-            -w "%{http_code}")
+        # Gera um novo token
+        response=$(curl -X 'POST' 'https://auth.xguardianplatform.io/login' \
+          -H 'accept: application/json' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "email": "'"${API_EMAIL}"'",
+            "password": "'"${API_PASSWORD}"'"
+          }' | jq -r '.token')
           
-          if [[ "$TEST_RESPONSE" == *"200"* ]]; then
-            echo "::debug::Token existente ainda é válido."
-            echo "API_TOKEN=$API_TOKEN" >> $GITHUB_ENV
-            NEED_NEW_TOKEN=false
-          fi
-        fi
-
-        # Se o token não é válido, gera um novo token
-        if [ "$NEED_NEW_TOKEN" = true ]; then
-          response=$(curl -X 'POST' 'https://auth.xguardianplatform.io/login' \
-            -H 'accept: application/json' \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "email": "'"${API_EMAIL}"'",
-              "password": "'"${API_PASSWORD}"'"
-            }' | jq -r '.token')
-            
-          if [ -n "$response" ] && [ "$response" != "null" ]; then
-            echo -n "$response" | gh secret set API_TOKEN
-            echo "API_TOKEN=$response" >> $GITHUB_ENV
-            echo "Token atualizado com sucesso."
-          else
-            echo "Erro: Não foi possível obter o token de autenticação."
-            exit 1
-          fi
+        if [ -n "$response" ] && [ "$response" != "null" ]; then
+          echo -n "$response" | gh secret set API_TOKEN
+          echo "API_TOKEN=$response" >> $GITHUB_ENV
+          echo "Token atualizado com sucesso."
+        else
+          echo "Erro: Não foi possível obter o token de autenticação."
+          exit 1
         fi
 
     - name: Verificar se a aplicação existe, caso contrário, cria a aplicação
@@ -209,10 +234,8 @@ runs:
         POLICY_SAST: ${{ inputs.policy_sast }}
         POLICY_SCA: ${{ inputs.policy_sca }}
         POLICY_DAST: ${{ inputs.policy_dast }}
-        POLICY_CONTAINER: ${{ inputs.policy_container }}
         MICROSERVICES: ${{ inputs.microservices }}
         MICROSERVICES_DATA: ${{ inputs.microservices_data }}
-
       run: |
         # Converte caracteres especiais para espaços, mantendo espaços existentes
         CLEAN_APP_NAME=$(echo "${APP_NAME}" | tr -c '[:alnum:] ' ' ')
@@ -229,7 +252,7 @@ runs:
           "policy_sast": ${POLICY_SAST},
           "policy_sca": ${POLICY_SCA},
           "policy_dast": ${POLICY_DAST},
-          "policy_container": ${POLICY_CONTAINER},
+          "policy_container": 0,
           "microservices": $([[ "${MICROSERVICES}" == "true" ]] && echo true || echo false)
           $([[ "${MICROSERVICES}" == "true" ]] && echo ',
           "microservices_data": ${MICROSERVICES_DATA}')
@@ -290,7 +313,8 @@ runs:
       run: |
         echo "short_sha=${GITHUB_SHA:0:6}" >> $GITHUB_OUTPUT
 
-    - name: Obter URL de upload
+    - name: Criar o Scan SAST e/ou SCA (Obter URL de upload)
+      if: ${{ inputs.sast == 'true' || inputs.sca == 'true' }}
       shell: bash
       env:
         APP_ID: ${{ env.APP_ID }}
@@ -299,7 +323,6 @@ runs:
         TRANSLATE: ${{ inputs.translate }}
         EXCLUDE: ${{ inputs.exclude }}
         PDF: ${{ inputs.pdf }}
-        FILE_TYPE: "application/zip"
         SCAN_VERSION: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
       run: |
         # Limpa o SCAN_VERSION removendo caracteres especiais e espaços
@@ -316,7 +339,7 @@ runs:
         {
           "app_id": ${APP_ID},
           "scan_version": "${CLEAN_SCAN_VERSION}",
-          "file_type": "${FILE_TYPE}",
+          "file_type": "application/zip",
           "sca": "${SCA}",
           "sast": "${SAST}",
           "translate": "${TRANSLATE}",
@@ -347,7 +370,54 @@ runs:
         echo "URL de Upload: ${GET_UPLOAD_URL}"
         echo "GET_UPLOAD_URL=${GET_UPLOAD_URL}" >> $GITHUB_ENV
 
+    - name: Realizar o scan DAST
+      if: ${{ inputs.dast == 'true' }}
+      shell: bash
+      env:
+        API_TOKEN: ${{ inputs.api_token }}
+        APP_ID: ${{ env.APP_ID }}
+        SCAN_VERSION: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
+        SITE_URL: ${{ inputs.site_url }}
+        AUTH_URL: ${{ inputs.auth_url }}
+        LOGOUT_URL: ${{ inputs.logout_url }}
+        AUTH_EXIST: ${{ inputs.auth_exist }}
+        USER_LOGIN: ${{ inputs.user_login }}
+        PASSWORD: ${{ inputs.password_login }}
+        TRANSLATE: ${{ inputs.translate }}
+        PDF: ${{ inputs.pdf }}
+      run: |
+        UPLOAD_DAST_URL="https://uploader-mvp.xguardianplatform.io/upload-dast"
+
+        DATA=$(cat << EOF
+        {
+          "app_id": "${APP_ID}",
+          "scan_version_dast": "${SCAN_VERSION}",
+          "site_url": "${SITE_URL}",
+          "auth_url": "${AUTH_URL}",
+          "logout_url": "${LOGOUT_URL}",
+          "authexist": ${AUTH_EXIST},
+          "userlogin": "${USER_LOGIN}",
+          "passwordlogin": "${PASSWORD}",
+          "translate": "${TRANSLATE}",
+          "pdf": "${PDF}"
+        }
+        EOF
+        )
+
+        echo "Payload do upload DAST:"
+        echo "$DATA"
+
+        RESPONSE=$(curl -sS -X POST "${UPLOAD_DAST_URL}" \
+          -H 'accept: application/json' \
+          -H "Authorization: Bearer ${API_TOKEN}" \
+          -H 'Content-Type: application/json' \
+          -d "${DATA}")
+
+        echo "Resposta do upload DAST:"
+        echo "$RESPONSE"
+
     - name: Zipar os arquivos
+      if: ${{ inputs.sast == 'true' || inputs.sca == 'true' }}
       shell: bash
       env:
         APP_NAME: ${{ inputs.app_name }}
@@ -395,7 +465,8 @@ runs:
         echo "Debug: Tamanho do arquivo zip:"
         du -h "${SAFE_APP_NAME}.zip"
 
-    - name: Upload da aplicação para o scan
+    - name: Upload da aplicação para o scan (SAST e/ou SCA)
+      if: ${{ inputs.sast == 'true' || inputs.sca == 'true' }}
       shell: bash
       env:
         SAFE_APP_NAME: ${{ env.SAFE_APP_NAME }}
@@ -437,7 +508,16 @@ runs:
           exit 1
         fi
 
-    - name: Obter ID do scan
+    - name: Aguardar 30 segundos antes de buscar o ID do scan
+      shell: bash
+      run: |
+        echo "Aguardando 30 segundos"
+        for i in {1..3}; do
+          sleep 10
+          echo "10 segundos concluídos ($i de 3)"
+        done
+
+    - name: Obter ID(s) do(s) scan(s) (SAST e/ou SCA ou DAST)
       shell: bash
       env:
         APP_ID: ${{ env.APP_ID }}
@@ -445,12 +525,6 @@ runs:
         SCAN_VERSION: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
         APP_NAME: ${{ inputs.app_name }}
       run: |
-        echo "Aguardando 30 segundos"
-        for i in {1..3}; do
-          sleep 10
-          echo "$i tentativa"
-        done
-        
         echo "Debug: Buscando scan com versão: ${SCAN_VERSION}"
         echo "Debug: APP_ID: ${APP_ID}"
 
