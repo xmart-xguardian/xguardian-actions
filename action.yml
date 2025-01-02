@@ -335,6 +335,8 @@ runs:
         # Limpa o APP_NAME também para garantir consistência
         CLEAN_APP_NAME=$(echo "${APP_NAME}" | tr -cd '[:alnum:]-_')
 
+        # XGB-1411 | Desativando o translate temporariamente
+        # "translate": "${TRANSLATE}",
         DATA=$(cat << EOF
         {
           "app_id": ${APP_ID},
@@ -342,7 +344,7 @@ runs:
           "file_type": "application/zip",
           "sca": "${SCA}",
           "sast": "${SAST}",
-          "translate": "${TRANSLATE}",
+          "translate": "false", 
           "exclude": "${EXCLUDE}",
           "pdf": "${PDF}"
         }
