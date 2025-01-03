@@ -6,7 +6,7 @@ branding:
   icon: "XGuardian.png"
   color: purple # Cor roxo900 [#2C1161] - XGuardian
   label: Security Scanning
-version: v24.12.3
+version: v25.1.0
 
 inputs:
   # Variáveis de segredo obrigatórias
