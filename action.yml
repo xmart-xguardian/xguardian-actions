@@ -6,7 +6,7 @@ branding:
   icon: "XGuardian.png"
   color: purple # Cor roxo900 [#2C1161] - XGuardian
   label: Security Scanning
-version: v24.12.3
+version: v25.1.0
 
 inputs:
   # Variáveis de segredo obrigatórias
@@ -74,17 +74,17 @@ inputs:
   # Configurações para o scan DAST
   site_url:
     description: "O URL do site para o scan DAST."
-    default: '""'
+    default: ""
     required: false
     type: string
   auth_url:
     description: "O URL de autenticação/login para o scan DAST."
-    default: '""'
+    default: ""
     required: false
     type: string
   logout_url:
     description: "O URL de logout para o scan DAST."
-    default: '""'
+    default: ""
     required: false
     type: string
   auth_exist:
@@ -94,19 +94,19 @@ inputs:
     type: boolean
   user_login:
     description: "O usuário para autenticação."
-    default: '""'
+    default: ""
     required: false
     type: string
   password_login:
     description: "A senha para autenticação."
-    default: '""'
+    default: ""
     required: false
     type: string
 
   # Configurações adicionais para o scan
   translate:
     description: "O relatório será traduzido para português do Brasil?"
-    default: '"false"'
+    default: "false"
     type: string
   exclude:
     description: "Diretórios ou arquivos a serem excluídos do scan."
@@ -120,6 +120,10 @@ inputs:
   scan_directory:
     description: "Diretório que será zipado para o scan (ex: 'dist' para código buildado)"
     default: "." # Root do projeto
+  get_scan_id:
+    description: "Deseja buscar o ID do Scan após o upload?"
+    default: '"false"'
+    type: string
   save_vulns:
     description: "Permitir salvar vulnerabilidades no banco de dados?"
     default: "false"
@@ -335,6 +339,8 @@ runs:
         # Limpa o APP_NAME também para garantir consistência
         CLEAN_APP_NAME=$(echo "${APP_NAME}" | tr -cd '[:alnum:]-_')
 
+        # XGB-1411 | Desativando o translate temporariamente
+        # "translate": "${TRANSLATE}",
         DATA=$(cat << EOF
         {
           "app_id": ${APP_ID},
@@ -342,7 +348,7 @@ runs:
           "file_type": "application/zip",
           "sca": "${SCA}",
           "sast": "${SAST}",
-          "translate": "${TRANSLATE}",
+          "translate": "false", 
           "exclude": "${EXCLUDE}",
           "pdf": "${PDF}"
         }
@@ -510,6 +516,7 @@ runs:
 
     - name: Aguardar 30 segundos antes de buscar o ID do scan
       shell: bash
+      if: ${{ inputs.get_scan_id == 'true' }}
       run: |
         echo "Aguardando 30 segundos"
         for i in {1..3}; do
@@ -519,6 +526,7 @@ runs:
 
     - name: Obter ID(s) do(s) scan(s) (SAST e/ou SCA ou DAST)
       shell: bash
+      if: ${{ inputs.get_scan_id == 'true' }}
       env:
         APP_ID: ${{ env.APP_ID }}
         API_TOKEN: ${{ inputs.api_token }}
@@ -610,6 +618,7 @@ runs:
     - name: Finalizar e validar outputs
       id: final_outputs
       shell: bash
+      if: ${{ inputs.get_scan_id == 'true' }}
       run: |
         if [ ! -f "/tmp/xguardian_scan_complete" ] || [ ! -s "/tmp/xguardian_scan_complete" ]; then
           echo "::error title=XGuardian Scan::Arquivo de estado não encontrado ou vazio"
