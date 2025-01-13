@@ -113,7 +113,7 @@ inputs:
     default: '""'
   pdf:
     description: "O relatório será gerado em PDF detalhado?"
-    default: '"false"'
+    default: "false"
     type: string
   pipeaction:
     description: "Ação na pipeline em caso de vulnerabilidades (warn, fail, noAction)."
@@ -593,6 +593,19 @@ runs:
             -H "Authorization: Bearer ${API_TOKEN}" \
             -H 'Content-Type: application/json' \
             -d "${DATA}")
+        fi
+
+        SCAN_NAME=$(echo "$RESPONSE" | jq -r '.scan_name')
+        APP_NAME=$(echo "$RESPONSE" | jq -r '.app_name')
+        APP_ID=$(echo "$RESPONSE" | jq -r '.app_id')
+
+        if [ -n "$SCAN_NAME" ] && [ -n "$APP_NAME" ] && [ -n "$APP_ID" ]; then
+          echo "Scan Name: $SCAN_NAME"
+          echo "App Name: $APP_NAME"
+          echo "App ID: $APP_ID"
+        else
+          echo "::error::Falha ao obter informações do scan."
+          exit 1
         fi
 
         echo "Resposta do upload DAST:"
