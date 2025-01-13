@@ -115,6 +115,11 @@ inputs:
     description: "O relatório será gerado em PDF detalhado?"
     default: '"false"'
     type: string
+  pipeaction:
+    description: "Ação na pipeline em caso de vulnerabilidades (warn, fail, noAction)."
+    default: "noAction"
+    required: false
+    type: string
 
   # Configurações opcionais (caso o usuário deseje)
   scan_directory:
@@ -139,8 +144,8 @@ outputs:
     description: "URL para visualizar os resultados do scan"
     value: ${{ steps.final_outputs.outputs.scan_url }}
   scan_version:
-    description: "Versão do scan (baseada no nome do repositório e SHA do commit)"
-    value: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
+    description: "Versão do scan (baseada no app_name (nome da aplicação) + SHA do commit)"
+    value: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
 
 runs:
   using: "composite"
@@ -173,14 +178,51 @@ runs:
 
         # Validar formato do GH Token (fine-grained)
         if [[ ! "$GH_TOKEN" =~ ^github_pat_[A-Za-z0-9_]{0,255}$ ]]; then
-          echo "Error: O token deve ser um GitHub fine-grained PAT (começando com 'github_pat_')"
+          echo "::error:: O token deve ser um GitHub fine-grained PAT (começando com 'github_pat_')"
           exit 1
         fi
 
         # Validar API Token
         if [ -z "$API_TOKEN" ]; then
-          echo "Error: API token não pode estar vazio"
+          echo "::error::API token não pode estar vazio"
           exit 1
+        fi
+
+    - name: Validar e renovar token se necessário
+      shell: bash
+      env:
+        API_EMAIL: ${{ inputs.api_email }}
+        API_PASSWORD: ${{ inputs.api_password }}
+        API_TOKEN: ${{ inputs.api_token }}
+      run: |
+        set -e
+
+        renew_token() {
+          echo "Renovando token..."
+          response=$(curl -s -X POST 'https://auth.xguardianplatform.io/login' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{"email": "'${API_EMAIL}'", "password": "'${API_PASSWORD}'"}' | jq -r '.token')
+            
+          if [[ -n "$response" && "$response" != "null" ]]; then
+            echo "Novo token obtido com sucesso."
+            echo "API_TOKEN=$response" >> $GITHUB_ENV
+            API_TOKEN=$response
+          else
+            echo "::error::Falha ao obter novo token."
+            exit 1
+          fi
+        }
+
+        echo "Verificando validade do token..."
+        test_response=$(curl -s -X GET 'https://auth.xguardianplatform.io/ping' \
+          -H 'accept: application/json' \
+          -H "Authorization: Bearer ${API_TOKEN}")
+
+        if echo "$test_response" | grep -q '"detail": "Token is invalid, Signature has expired."'; then
+          renew_token
+        else
+          echo "Token válido."
         fi
 
     - name: Instalar dependências
@@ -188,6 +230,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.gh_token }}
       run: |
+        echo "Atualizando pacotes..."
         sudo apt-get update
         # Instalar todas as dependências necessárias de uma vez
         sudo apt-get install -y curl jq zip
@@ -224,7 +267,7 @@ runs:
           echo "API_TOKEN=$response" >> $GITHUB_ENV
           echo "Token atualizado com sucesso."
         else
-          echo "Erro: Não foi possível obter o token de autenticação."
+          echo "::error::Não foi possível obter o token de autenticação."
           exit 1
         fi
 
@@ -276,8 +319,23 @@ runs:
         if [ "$APP_ID" != "null" ] && [ ! -z "$APP_ID" ]; then
           echo "Aplicação criada com sucesso. APP_ID: $APP_ID"
           echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+
+          POLICY_SAST=$(echo "$RESPONSE" | jq -r '.policies_id_sast')
+          POLICY_SCA=$(echo "$RESPONSE" | jq -r '.policies_id_sca')
+          POLICY_DAST=$(echo "$RESPONSE" | jq -r '.policies_id_dast')
+
+          if [ -n "$POLICY_SAST" ]; then
+            echo "POLICY_SAST=$POLICY_SAST" >> $GITHUB_ENV
+          fi
+
+          if [ -n "$POLICY_SCA" ]; then
+            echo "POLICY_SCA=$POLICY_SCA" >> $GITHUB_ENV
+          fi
+
+          if [ -n "$POLICY_DAST" ]; then
+            echo "POLICY_DAST=$POLICY_DAST" >> $GITHUB_ENV
+          fi
         else
-          # Verificar se é erro 400 (app já existe)
           ERROR_STATUS=$(echo "$RESPONSE" | jq -r '.status // empty')
           ERROR_DETAIL=$(echo "$RESPONSE" | jq -r '.detail // empty')
           
@@ -296,18 +354,130 @@ runs:
               echo "Detalhes da aplicação:"
               echo "$EXISTING_APP" | jq --arg NAME "$APP_NAME" '.[] | select(.name == $NAME)'
               echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+
+              POLICY_SAST=$(echo "$EXISTING_APP" | jq -r --arg NAME "$APP_NAME" '.[] | select(.name == $NAME) | .policies_id_sast')
+              POLICY_SCA=$(echo "$EXISTING_APP" | jq -r --arg NAME "$APP_NAME" '.[] | select(.name == $NAME) | .policies_id_sca')
+              POLICY_DAST=$(echo "$EXISTING_APP" | jq -r --arg NAME "$APP_NAME" '.[] | select(.name == $NAME) | .policies_id_dast')
+
+              if [ -n "$POLICY_SAST" ]; then
+                echo "POLICY_SAST=$POLICY_SAST" >> $GITHUB_ENV
+              fi
+
+              if [ -n "$POLICY_SCA" ]; then
+                echo "POLICY_SCA=$POLICY_SCA" >> $GITHUB_ENV
+              fi
+
+              if [ -n "$POLICY_DAST" ]; then
+                echo "POLICY_DAST=$POLICY_DAST" >> $GITHUB_ENV
+              fi
             else
-              echo "Aviso: Não foi possível encontrar o APP_ID da aplicação existente"
-              echo "Response completo:"
-              echo "$EXISTING_APP" | jq '.'
+              echo "::error::Não foi possível encontrar o APP_ID da aplicação existente"
               exit 1
             fi
           else
-            echo "Erro inesperado na criação/verificação da aplicação:"
+            echo "::error::Erro inesperado na criação/verificação da aplicação"
             echo "$RESPONSE"
             exit 1
           fi
         fi
+
+    - name: Buscar políticas após criação da aplicação
+      shell: bash
+      env:
+        API_TOKEN: ${{ env.API_TOKEN }}
+        APP_ID: ${{ env.APP_ID }}
+      run: |
+        fetch_policies() {
+          local scan_type=$1
+          local response=$(curl -s -X GET "https://auth.xguardianplatform.io/get_policies_${scan_type}" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
+
+          echo "$response" | jq '.' || {
+            echo "::error::Resposta da API não é um JSON válido: $response"
+            exit 1
+          }
+
+          local policies=$(echo "$response" | jq -r '
+            .[] | select(.name and .description) | 
+            select((.name | ascii_downcase) != "default" and (.description | ascii_downcase) != "default") | 
+            @base64')
+
+          if [ -n "$policies" ]; then
+            echo "Políticas encontradas para ${scan_type}:"
+            echo "$policies" | while read -r policy; do
+              echo "$policy" | base64 --decode | jq '.'
+            done
+          else
+            echo "Nenhuma política encontrada para ${scan_type}."
+          fi
+        }
+
+        fetch_policies "sast"
+        fetch_policies "sca"
+        fetch_policies "dast"
+
+    - name: Verificar políticas definidas
+      shell: bash
+      env:
+        API_TOKEN: ${{ env.API_TOKEN }}
+        POLICY_SAST: "${{ env.POLICY_SAST }}"
+        POLICY_SCA: "${{ env.POLICY_SCA }}"
+        POLICY_DAST: "${{ env.POLICY_DAST }}"
+      run: |
+        check_policies() {
+          local scan_type=$1
+          local app_policy_id=$2
+
+          local response=$(curl -s -X GET "https://auth.xguardianplatform.io/get_policies_${scan_type}" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
+
+          echo "$response" | jq '.' || {
+            echo "::error::Resposta da API não é um JSON válido: $response"
+            exit 1
+          }
+
+          local policy=$(echo "$response" | jq --arg id "$app_policy_id" '.[] | select(.id == ($id | tonumber))')
+          echo "$policy" | jq '.'
+
+          if [ -z "$policy" ]; then
+            echo "::error::Política atribuída para ${scan_type} não encontrada: $app_policy_id"
+            exit 1
+          fi
+
+          export CRITICAL=$(echo "$policy" | jq -r '.critical')
+          export HIGH=$(echo "$policy" | jq -r '.high')
+          export MEDIUM=$(echo "$policy" | jq -r '.medium')
+          export LOW=$(echo "$policy" | jq -r '.low')
+          export RATING=$(echo "$policy" | jq -r '.rating')
+          export PIPEACTION=$(echo "$policy" | jq -r '.pipeaction')
+
+          if [ -z "$CRITICAL" ] || [ -z "$HIGH" ] || [ -z "$MEDIUM" ] || [ -z "$LOW" ] || [ -z "$RATING" ] || [ -z "$PIPEACTION" ]; then
+            echo "::error::Falha ao atribuir variáveis de ambiente para ${scan_type}"
+            exit 1
+          fi
+
+          echo "Política atribuída para ${scan_type}:"
+          echo "ID: $app_policy_id"
+          echo "CRITICAL: $CRITICAL"
+          echo "HIGH: $HIGH"
+          echo "MEDIUM: $MEDIUM"
+          echo "LOW: $LOW"
+          echo "RATING: $RATING"
+          echo "PIPEACTION: $PIPEACTION"
+
+          echo "${scan_type^^}_CRITICAL=$CRITICAL" >> $GITHUB_ENV
+          echo "${scan_type^^}_HIGH=$HIGH" >> $GITHUB_ENV
+          echo "${scan_type^^}_MEDIUM=$MEDIUM" >> $GITHUB_ENV
+          echo "${scan_type^^}_LOW=$LOW" >> $GITHUB_ENV
+          echo "${scan_type^^}_RATING=$RATING" >> $GITHUB_ENV
+          echo "${scan_type^^}_PIPEACTION=$PIPEACTION" >> $GITHUB_ENV
+        }
+
+        check_policies "sast" "${POLICY_SAST}"
+        check_policies "sca" "${POLICY_SCA}"
+        check_policies "dast" "${POLICY_DAST}"
 
     - name: Obter o short_sha
       id: vars
@@ -327,7 +497,7 @@ runs:
         TRANSLATE: ${{ inputs.translate }}
         EXCLUDE: ${{ inputs.exclude }}
         PDF: ${{ inputs.pdf }}
-        SCAN_VERSION: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
+        SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
       run: |
         # Limpa o SCAN_VERSION removendo caracteres especiais e espaços
         CLEAN_SCAN_VERSION=$(echo "${SCAN_VERSION}" | tr -cd '[:alnum:]-_')
@@ -382,7 +552,7 @@ runs:
       env:
         API_TOKEN: ${{ inputs.api_token }}
         APP_ID: ${{ env.APP_ID }}
-        SCAN_VERSION: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
+        SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
         SITE_URL: ${{ inputs.site_url }}
         AUTH_URL: ${{ inputs.auth_url }}
         LOGOUT_URL: ${{ inputs.logout_url }}
@@ -410,14 +580,20 @@ runs:
         EOF
         )
 
-        echo "Payload do upload DAST:"
-        echo "$DATA"
-
         RESPONSE=$(curl -sS -X POST "${UPLOAD_DAST_URL}" \
           -H 'accept: application/json' \
           -H "Authorization: Bearer ${API_TOKEN}" \
           -H 'Content-Type: application/json' \
           -d "${DATA}")
+
+        if echo "$RESPONSE" | grep -q '"detail": "Token is invalid, Signature has expired."'; then
+          renew_token
+          RESPONSE=$(curl -sS -X POST "${UPLOAD_DAST_URL}" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "${DATA}")
+        fi
 
         echo "Resposta do upload DAST:"
         echo "$RESPONSE"
@@ -478,7 +654,7 @@ runs:
         SAFE_APP_NAME: ${{ env.SAFE_APP_NAME }}
         APP_NAME: ${{ inputs.app_name }}
         APP_ID: ${{ env.APP_ID }}
-        SCAN_VERSION: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
+        SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
         GET_UPLOAD_URL: ${{ env.GET_UPLOAD_URL }}
       run: |
         echo "Debug: Iniciando upload com SCAN_VERSION: ${SCAN_VERSION}"
@@ -530,7 +706,7 @@ runs:
       env:
         APP_ID: ${{ env.APP_ID }}
         API_TOKEN: ${{ inputs.api_token }}
-        SCAN_VERSION: ${{ format('{0}-{1}', github.event.repository.name, steps.vars.outputs.short_sha) }}
+        SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
         APP_NAME: ${{ inputs.app_name }}
       run: |
         echo "Debug: Buscando scan com versão: ${SCAN_VERSION}"
@@ -614,6 +790,178 @@ runs:
           echo "$RESPONSE" | jq '.' || echo "$RESPONSE"
           exit 1
         fi
+
+    - name: Aguardar finalização do scan
+      shell: bash
+      env:
+        API_TOKEN: ${{ inputs.api_token }}
+        APP_ID: ${{ env.APP_ID }}
+        SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
+      run: |
+        SCAN_STATUS=""
+
+        check_scan_status() {
+          local response=$(curl -s -X GET "https://reporter.xguardianplatform.io/get_scan_pagination/${APP_ID}?page=1&items_per_page=10" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
+
+          if ! echo "$response" | jq . >/dev/null 2>&1; then
+            echo "Debug: Resposta não é um JSON válido:"
+            echo "$response"
+            return 1
+          fi
+
+          SCAN_DATA=$(echo "$response" | jq -r --arg version "${SCAN_VERSION}" '.data[] | select(.scanuuid == $version)')
+
+          if [ -n "$SCAN_DATA" ] && [ "$SCAN_DATA" != "null" ]; then
+            SCAN_STATUS=$(echo "$SCAN_DATA" | jq -r '.scan_status')
+            echo "Scan status: $SCAN_STATUS"
+          else
+            echo "Scan não encontrado na resposta."
+            return 1
+          fi
+        }
+
+        for i in {1..30}; do
+          echo "Verificando status do scan (tentativa $i de 30)..."
+          if check_scan_status; then
+            if [ "$SCAN_STATUS" == "FINISHED" ]; then
+              echo "Scan finalizado com sucesso."
+              break
+            elif [ "$SCAN_STATUS" == "RUNNING" ]; then
+              echo "Scan ainda em andamento. Aguardando 2 minutos..."
+              sleep 120
+            else
+              echo "Status inesperado do scan: $SCAN_STATUS"
+              exit 1
+            fi
+          else
+            echo "Erro ao verificar status do scan. Tentando novamente em 2 minutos..."
+            sleep 120
+          fi
+        done
+
+        if [ "$SCAN_STATUS" != "FINISHED" ]; then
+          echo "::error::Scan não foi finalizado após múltiplas tentativas."
+          exit 1
+        fi
+
+    - name: Buscar vulnerabilidades e comparar com políticas
+      shell: bash
+      env:
+        API_TOKEN: ${{ inputs.api_token }}
+        APP_ID: ${{ env.APP_ID }}
+        SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
+        SAST_CRITICAL: ${{ env.SAST_CRITICAL }}
+        SAST_HIGH: ${{ env.SAST_HIGH }}
+        SAST_MEDIUM: ${{ env.SAST_MEDIUM }}
+        SAST_LOW: ${{ env.SAST_LOW }}
+        SAST_RATING: ${{ env.SAST_RATING }}
+        SCA_CRITICAL: ${{ env.SCA_CRITICAL }}
+        SCA_HIGH: ${{ env.SCA_HIGH }}
+        SCA_MEDIUM: ${{ env.SCA_MEDIUM }}
+        SCA_LOW: ${{ env.SCA_LOW }}
+        SCA_RATING: ${{ env.SCA_RATING }}
+        DAST_CRITICAL: ${{ env.DAST_CRITICAL }}
+        DAST_HIGH: ${{ env.DAST_HIGH }}
+        DAST_MEDIUM: ${{ env.DAST_MEDIUM }}
+        DAST_LOW: ${{ env.DAST_LOW }}
+        DAST_RATING: ${{ env.DAST_RATING }}
+        SAST_PIPEACTION: ${{ env.SAST_PIPEACTION }}
+        SCA_PIPEACTION: ${{ env.SCA_PIPEACTION }}
+        DAST_PIPEACTION: ${{ env.DAST_PIPEACTION }}
+      run: |
+        fetch_vulnerabilities() {
+          local response=$(curl -s -X GET "https://reporter.xguardianplatform.io/get_scan_pagination/${APP_ID}?page=1&items_per_page=10" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
+
+          if ! echo "$response" | jq . >/dev/null 2>&1; then
+            echo "Debug: Resposta não é um JSON válido:"
+            echo "$response"
+            exit 1
+          fi
+
+          local scan_data=$(echo "$response" | jq -r --arg version "${SCAN_VERSION}" '.data[] | select(.scanuuid == $version)')
+
+          if [ -n "$scan_data" ] && [ "$scan_data" != "null" ]; then
+            echo "Scan encontrado:"
+            echo "$scan_data" | jq '.'
+          else
+            echo "::error::Scan não encontrado na resposta."
+            exit 1
+          fi
+
+          compare_vulnerabilities "$scan_data"
+        }
+
+        compare_vulnerabilities() {
+          local scan_data=$1
+
+          local sast_critical=$(echo "$scan_data" | jq -r '.sast_critical // 0')
+          local sast_high=$(echo "$scan_data" | jq -r '.sast_high // 0')
+          local sast_medium=$(echo "$scan_data" | jq -r '.sast_medium // 0')
+          local sast_low=$(echo "$scan_data" | jq -r '.sast_low // 0')
+
+          local sca_critical=$(echo "$scan_data" | jq -r '.sca_critical // 0')
+          local sca_high=$(echo "$scan_data" | jq -r '.sca_high // 0')
+          local sca_medium=$(echo "$scan_data" | jq -r '.sca_medium // 0')
+          local sca_low=$(echo "$scan_data" | jq -r '.sca_low // 0')
+
+          local dast_critical=$(echo "$scan_data" | jq -r '.dast_critical // 0')
+          local dast_high=$(echo "$scan_data" | jq -r '.dast_high // 0')
+          local dast_medium=$(echo "$scan_data" | jq -r '.dast_medium // 0')
+          local dast_low=$(echo "$scan_data" | jq -r '.dast_low // 0')
+
+          SAST_CRITICAL=${SAST_CRITICAL:-0}
+          SAST_HIGH=${SAST_HIGH:-0}
+          SAST_MEDIUM=${SAST_MEDIUM:-0}
+          SAST_LOW=${SAST_LOW:-0}
+
+          SCA_CRITICAL=${SCA_CRITICAL:-0}
+          SCA_HIGH=${SCA_HIGH:-0}
+          SCA_MEDIUM=${SCA_MEDIUM:-0}
+          SCA_LOW=${SCA_LOW:-0}
+
+          DAST_CRITICAL=${DAST_CRITICAL:-0}
+          DAST_HIGH=${DAST_HIGH:-0}
+          DAST_MEDIUM=${DAST_MEDIUM:-0}
+          DAST_LOW=${DAST_LOW:-0}
+
+          check_vulnerabilities() {
+            local scan_type=$1
+            local critical=$2
+            local high=$3
+            local medium=$4
+            local low=$5
+            local policy_critical=$6
+            local policy_high=$7
+            local policy_medium=$8
+            local policy_low=$9
+            local pipeaction=${10}
+
+            if [ "$critical" -gt "$policy_critical" ] || [ "$high" -gt "$policy_high" ] || [ "$medium" -gt "$policy_medium" ] || [ "$low" -gt "$policy_low" ]; then
+              echo "Políticas definidas para ${scan_type^^}: CRITICAL=$policy_critical, HIGH=$policy_high, MEDIUM=$policy_medium, LOW=$policy_low"
+              echo "Vulnerabilidades encontradas para ${scan_type^^}: CRITICAL=$critical, HIGH=$high, MEDIUM=$medium, LOW=$low"
+              if [ "$pipeaction" == "fail" ]; then
+                echo "::error::Vulnerabilidades ${scan_type^^} excedem as políticas definidas."
+                exit 1
+              elif [ "$pipeaction" == "warn" ]; then
+                echo "::warning::Vulnerabilidades ${scan_type^^} excedem as políticas definidas."
+              else
+                echo "::notice::Vulnerabilidades ${scan_type^^} excedem as políticas definidas, mas nenhuma ação foi tomada devido ao pipeaction definido como 'noAction'."
+              fi
+            fi
+          }
+
+          check_vulnerabilities "sast" "$sast_critical" "$sast_high" "$sast_medium" "$sast_low" "$SAST_CRITICAL" "$SAST_HIGH" "$SAST_MEDIUM" "$SAST_LOW" "$SAST_PIPEACTION"
+          check_vulnerabilities "sca" "$sca_critical" "$sca_high" "$sca_medium" "$sca_low" "$SCA_CRITICAL" "$SCA_HIGH" "$SCA_MEDIUM" "$SCA_LOW" "$SCA_PIPEACTION"
+          check_vulnerabilities "dast" "$dast_critical" "$dast_high" "$dast_medium" "$dast_low" "$DAST_CRITICAL" "$DAST_HIGH" "$DAST_MEDIUM" "$DAST_LOW" "$DAST_PIPEACTION"
+
+          echo "::notice::Todas as vulnerabilidades estão dentro das políticas definidas."
+        }
+
+        fetch_vulnerabilities
 
     - name: Finalizar e validar outputs
       id: final_outputs
