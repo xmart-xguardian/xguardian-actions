@@ -1,323 +1,337 @@
-# Scan Automático com XGuardian 🔍
+# XGuardian Security Scan Action 🔍
 
-Este Action é configurado para executar uma varredura de segurança usando o XGuardian. Ele verifica o código fonte, faz login na API do XGuardian, cria/verifica a existência de uma aplicação e realiza o upload dos arquivos para análise.
+> **Versão atual: v25.3.0**
 
-> O Action suporta diferentes tipos de scans, incluindo SAST (Static Application Security Testing), SCA (Software Composition Analysis) e DAST (Dynamic Application Security Testing), permitindo uma análise abrangente da segurança do seu código. O usuário pode personalizar o workflow conforme suas necessidades, incluindo o step de varredura do XGuardian em qualquer ponto do seu workflow.
+Este GitHub Action executa varreduras de segurança automatizadas usando o XGuardian, permitindo análises de segurança contínuas diretamente nos seus workflows do GitHub. Integre facilmente análises de vulnerabilidades no seu pipeline de desenvolvimento.
+
+> **Recursos disponíveis:**
+>
+> - 🛡️ **SAST** (Static Application Security Testing): Análise estática do código-fonte
+> - 📦 **SCA** (Software Composition Analysis): Análise de dependências e componentes
+> - 🌐 **DAST** (Dynamic Application Security Testing): Análise dinâmica de aplicações web em execução
+> - 📊 **Relatórios detalhados**: Visualize vulnerabilidades e receba recomendações de correção
+> - 📩 **Notificações**: Integre com Microsoft Teams ou Slack para receber atualizações sobre os resultados dos scans
 
 ## Tópicos 📚
 
-- [Pré-requisitos](#pré-requisitos-)
-  - [Permissões do GitHub Token](#permissões-do-github-token)
-  - [Segredos Necessários](#segredos-necessários)
-  - [Parâmetros de Configuração](#parâmetros-de-configuração)
-    - [Configurações para a criação da aplicação](#configurações-para-a-criação-da-aplicação)
-    - [Scan SAST (Static Application Security Testing)](#scan-sast-static-application-security-testing)
-    - [Scan SCA (Software Composition Analysis)](#scan-sca-software-composition-analysis)
-    - [Scan DAST (Dynamic Application Security Testing)](#scan-dast-dynamic-application-security-testing)
-    - [Outros](#outros)
-- [Execução](#execução-)
-  - [Exemplo de Scan SAST](#exemplo-de-scan-sast)
-  - [Exemplo de Scan SCA](#exemplo-de-scan-sca)
-  - [Exemplo de Scan DAST](#exemplo-de-scan-dast)
-- [Outputs Disponíveis](#outputs-disponíveis-)
-  - [Exemplo de uso dos outputs](#exemplo-de-uso-dos-outputs)
-  - [Exemplo para notificar no Microsoft Teams](#exemplo-para-notificar-no-microsoft-teams)
-  - [Exemplo para notificar no Slack](#exemplo-para-notificar-no-slack)
+- [XGuardian Security Scan Action 🔍](#xguardian-security-scan-action-)
+  - [Tópicos 📚](#tópicos-)
+  - [Requisitos do Sistema 🖥️](#requisitos-do-sistema-️)
+  - [Pré-requisitos 📋](#pré-requisitos-)
+    - [Credenciais Necessárias](#credenciais-necessárias)
+    - [Parâmetros de Configuração](#parâmetros-de-configuração)
+      - [Configurações da Aplicação](#configurações-da-aplicação)
+      - [Configurações SAST](#configurações-sast)
+      - [Configurações SCA](#configurações-sca)
+      - [Configurações DAST](#configurações-dast)
+      - [Configurações Adicionais](#configurações-adicionais)
+  - [Exemplos de Uso 🚀](#exemplos-de-uso-)
+    - [Exemplo Básico](#exemplo-básico)
+    - [Exemplo de Scan SAST](#exemplo-de-scan-sast)
+    - [Exemplo de Scan SCA](#exemplo-de-scan-sca)
+    - [Exemplo de Scan DAST](#exemplo-de-scan-dast)
+    - [Exemplo Combinando Múltiplos Scans](#exemplo-combinando-múltiplos-scans)
+    - [Exemplo em Pull Requests](#exemplo-em-pull-requests)
+  - [Outputs Disponíveis 📤](#outputs-disponíveis-)
+    - [Uso dos Outputs](#uso-dos-outputs)
+    - [Integração com Microsoft Teams](#integração-com-microsoft-teams)
+    - [Integração com Slack](#integração-com-slack)
+  - [Perguntas Frequentes ❓](#perguntas-frequentes-)
+    - [Quanto tempo leva um scan completo?](#quanto-tempo-leva-um-scan-completo)
+    - [Posso usar este Action em repositórios privados?](#posso-usar-este-action-em-repositórios-privados)
+    - [O que fazer se o scan falhar?](#o-que-fazer-se-o-scan-falhar)
+    - [Como configurar alertas para vulnerabilidades críticas?](#como-configurar-alertas-para-vulnerabilidades-críticas)
+  - [Modo de Desenvolvimento](#modo-de-desenvolvimento)
+  - [Suporte](#suporte)
+
+## Requisitos do Sistema 🖥️
+
+O XGuardian Security Scan Action executa em ambientes GitHub Actions e requer:
+
+- **Runner**: Ubuntu (recomendado: `ubuntu-latest`)
+- **Dependências**: curl, jq e zip (instaladas automaticamente durante a execução)
+- **Permissões**: Acesso de leitura ao código do repositório
+- **Memória/CPU**: Recursos padrão do GitHub Actions são suficientes para projetos de tamanho médio
+- **Tempo de execução**: Variável conforme o tamanho do projeto e tipos de scan habilitados
 
 ## Pré-requisitos 📋
 
-### Permissões do GitHub Token
+### Credenciais Necessárias
 
-> **Importante**:
->
-> - O token deve começar com `github_pat_`
-> - Tokens clássicos não são suportados
-> - Para criar um novo fine-grained PAT, acesse: [New fine-grained PAT](https://github.com/settings/personal-access-tokens/new)
+> **Simplificado!** Agora você precisa apenas de credenciais básicas para começar a usar o XGuardian.
 
-O token do GitHub (`GH_TOKEN`) deve ser um fine-grained Personal Access Token (PAT) com as seguintes permissões mínimas:
+| Segredo        | Descrição                              | Obrigatório |
+| -------------- | -------------------------------------- | :---------: |
+| `API_EMAIL`    | Email de acesso à plataforma XGuardian |     ✅      |
+| `API_PASSWORD` | Senha de acesso à plataforma XGuardian |     ✅      |
 
-| Escopo   | Permissão | Motivo                                                      |
-| -------- | --------- | ----------------------------------------------------------- |
-| Contents | Read      | Para acessar o código fonte do repositório                  |
-| Metadata | Read      | Para acessar metadados do repositório (nome, SHA do commit) |
-| Secrets  | Write     | Para atualizar o segredo `API_TOKEN` automaticamente        |
+Para adicionar esses segredos ao seu repositório:
 
-### Segredos Necessários
+1. Acesse as configurações do seu repositório
+2. Navegue até "Secrets and variables" > "Actions"
+3. Clique em "New repository secret"
+4. Adicione cada segredo com seu respectivo valor
 
-> ℹ️ Caso possua dúvidas sobre como adicionar os **segredos** e/ou **variáveis de ambiente**, acesse: [Creating secrets for a repository](https://docs.github.com/pt/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository)
-
-| Nome do Segredo | Descrição                                                             | Obrigatório |
-| --------------- | --------------------------------------------------------------------- | ----------- |
-| `API_EMAIL`     | Email para login na API do XGuardian                                  | ✅          |
-| `API_PASSWORD`  | Senha para login na API do XGuardian                                  | ✅          |
-| `API_TOKEN`     | Token de autenticação da API (será gerado/atualizado automaticamente) | ✅          |
-| `GH_TOKEN`      | Token de acesso fino do GitHub (deve começar com 'github*pat*')       | ✅          |
+[📚 Documentação oficial sobre segredos no GitHub Actions](https://docs.github.com/pt/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository)
 
 ### Parâmetros de Configuração
 
-> ℹ️ Os parâmetros são opcionais e podem ser configurados conforme a necessidade do usuário. Caso não sejam informados, serão utilizados valores padrão (default).
+> Os parâmetros são configuráveis conforme sua necessidade. Quando não especificados, valores padrão serão utilizados.
 
-#### Configurações para a criação da aplicação
+#### Configurações da Aplicação
 
-| Parâmetro            | Descrição                  | Valor Padrão                                               |
-| -------------------- | -------------------------- | ---------------------------------------------------------- |
-| `app_name`           | Nome da aplicação          | Nome do repositório                                        |
-| `team_id`            | ID(s) da(s) equipe(s)      | `[1]`                                                      |
-| `languages`          | Linguagem(ns) da aplicação | `["JavaScript"]`                                           |
-| `description`        | Descrição da aplicação     | `"Aplicação criada através do GitHub Actions - XGuardian"` |
-| `microservices`      | Possui microserviços?      | `false`                                                    |
-| `microservices_data` | Dados dos microserviços    | `[{"name": "MS1", "language": ["JavaScript"]}]`            |
+| Parâmetro            | Descrição                                  | Valor Padrão                                               |
+| -------------------- | ------------------------------------------ | ---------------------------------------------------------- |
+| `app_name`           | Nome da aplicação                          | Nome do repositório                                        |
+| `team_id`            | ID(s) da(s) equipe(s) no formato JSON      | `[1]`                                                      |
+| `languages`          | Linguagem(ns) da aplicação no formato JSON | `["JavaScript"]`                                           |
+| `description`        | Descrição da aplicação                     | `"Aplicação criada através do GitHub Actions - XGuardian"` |
+| `microservices`      | Indica se a aplicação possui microserviços | `"false"`                                                  |
+| `microservices_data` | Dados dos microserviços no formato JSON    | `[{"name": "MS1", "language": ["JavaScript"]}]`            |
 
-#### Scan SAST (Static Application Security Testing)
+#### Configurações SAST
 
 | Parâmetro     | Descrição           | Valor Padrão |
 | ------------- | ------------------- | ------------ |
-| `sast`        | Executar scan SAST  | `"true"`     |
+| `sast`        | Ativa o scan SAST   | `"false"`    |
 | `policy_sast` | ID da política SAST | `0`          |
 
-#### Scan SCA (Software Composition Analysis)
+#### Configurações SCA
 
 | Parâmetro    | Descrição          | Valor Padrão |
 | ------------ | ------------------ | ------------ |
-| `sca`        | Executar scan SCA  | `"false"`    |
+| `sca`        | Ativa o scan SCA   | `"false"`    |
 | `policy_sca` | ID da política SCA | `0`          |
 
-#### Scan DAST (Dynamic Application Security Testing)
+#### Configurações DAST
 
-| Parâmetro        | Descrição                     | Valor Padrão |
-| ---------------- | ----------------------------- | ------------ |
-| `dast`           | Executar scan DAST            | `"false"`    |
-| `policy_dast`    | ID da política DAST           | `0`          |
-| `site_url`       | URL do site para o scan DAST  | `""`         |
-| `auth_url`       | URL de autenticação para DAST | `""`         |
-| `logout_url`     | URL de logout para DAST       | `""`         |
-| `auth_exist`     | O site possui autenticação?   | `false`      |
-| `user_login`     | Usuário para autenticação     | `""`         |
-| `password_login` | Senha para autenticação       | `""`         |
+| Parâmetro        | Descrição                              | Valor Padrão |
+| ---------------- | -------------------------------------- | ------------ |
+| `dast`           | Ativa o scan DAST                      | `"false"`    |
+| `policy_dast`    | ID da política DAST                    | `0`          |
+| `site_url`       | URL completa do site para análise DAST | `""`         |
+| `auth_url`       | URL da página de login                 | `""`         |
+| `logout_url`     | URL da página de logout                | `""`         |
+| `auth_exist`     | Indica se o site requer autenticação   | `false`      |
+| `user_login`     | Nome de usuário para autenticação      | `""`         |
+| `password_login` | Senha para autenticação                | `""`         |
 
-#### Outros
+#### Configurações Adicionais
 
-| Parâmetro        | Descrição                         | Valor Padrão                        |
-| ---------------- | --------------------------------- | ----------------------------------- |
-| `translate`      | Traduzir relatório para PT-BR     | `"false"`                           |
-| `exclude`        | Padrões a serem excluídos         | `".log", ".git"`                    |
-| `pdf`            | Gerar relatório PDF detalhado     | `"false"`                           |
-| `save_vulns`     | Salvar vulnerabilidades no banco  | `false`                             |
-| `scan_directory` | Diretório a ser analisado         | `.` (diretório raiz do repositório) |
-| `get_scan_id`    | Buscar o ID do Scan após o upload | `"false"`                           |
+| Parâmetro        | Descrição                                                | Valor Padrão |
+| ---------------- | -------------------------------------------------------- | ------------ |
+| `translate`      | Traduz o relatório para português brasileiro             | `"false"`    |
+| `exclude`        | Padrões a serem excluídos do scan                        | `""`         |
+| `pdf`            | Gera relatório PDF detalhado                             | `"false"`    |
+| `scan_directory` | Diretório específico para análise                        | `.`          |
+| `get_scan_id`    | Busca o ID do scan após o upload                         | `"false"`    |
+| `save_vulns`     | Salva vulnerabilidades no banco                          | `"false"`    |
+| `is_development` | Usa URLs de ambiente de desenvolvimento                  | `"false"`    |
+| `pipeaction`     | Ação na pipeline quando vulnerabilidades são encontradas | `"noAction"` |
 
-## Execução 🚀
+## Exemplos de Uso 🚀
 
-Essa action pode ser utilizada em qualquer workflow do GitHub Actions. Para executá-la, você precisa referenciá-la em seu arquivo de workflow (`.github/workflows/seu-workflow.yml`).
-
-Por exemplo, para executar em pushes na branch main:
+### Exemplo Básico
 
 ```yaml
-name: Security Scan
+name: XGuardian Security Scan
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      # Checkout do código fonte
-      - uses: actions/checkout@v4
+      - name: Checkout do código
+        uses: actions/checkout@v4
 
-      # Execução do scan
-      - name: XGuardian Security Scan
+      - name: Executar scan de segurança
         uses: xmart-xguardian/xguardian-actions@main
         with:
           api_email: ${{ secrets.API_EMAIL }}
           api_password: ${{ secrets.API_PASSWORD }}
-          api_token: ${{ secrets.API_TOKEN }}
-          gh_token: ${{ secrets.GH_TOKEN }}
           app_name: ${{ github.event.repository.name }}
-          # ... outros parâmetros de configuração ...
+          sast: "true"
 ```
 
 ### Exemplo de Scan SAST
 
 ```yaml
-name: Security SAST Scan
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  security-sast-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checar o código-fonte do repositório
-        uses: actions/checkout@v4
-
-      # Execução do scan
-      - name: XGuardian Security Scan
-        uses: xmart-xguardian/xguardian-actions@main
-        with:
-          api_email: ${{ secrets.API_EMAIL }}
-          api_password: ${{ secrets.API_PASSWORD }}
-          api_token: ${{ secrets.API_TOKEN }}
-          gh_token: ${{ secrets.GH_TOKEN }}
-          app_name: ${{ github.event.repository.name }}
-          scan_directory: "." # Analisando todo o código-fonte por padrão
-          # scan_directory: 'dist' # Descomente e ajuste se quiser analisar apenas o código buildado
-          team_id: "[1]" # Time/equipe número um (1)
-          languages: '["TypeScript", "JavaScript"]' # Linguagens do aplicação
-          description: "Exemplo de Scan SAST" # Descrição da aplicação
-          policy_sast: "0" # ID da politica para scan SAST; "0" = nenhuma politica definida
-          microservices: "false" # Caso a aplicação possua microserviços
-          microservices_data: '[{"name": "Server Node.js", "language": ["JavaScript"]}]' # Dados dos microserviços (nome e linguagem)
-          sast: "true"
+- name: XGuardian SAST Scan
+  uses: xmart-xguardian/xguardian-actions@main
+  with:
+    api_email: ${{ secrets.API_EMAIL }}
+    api_password: ${{ secrets.API_PASSWORD }}
+    app_name: "minha-aplicacao"
+    team_id: "[1]"
+    languages: '["JavaScript", "TypeScript"]'
+    description: "Aplicação web front-end"
+    sast: "true"
+    policy_sast: "0"
+    scan_directory: "src"
+    pdf: "true"
+    get_scan_id: "true" # Importante para obter os resultados
 ```
 
 ### Exemplo de Scan SCA
 
 ```yaml
-name: Security SCA Scan
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  security-sast-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checar o código-fonte do repositório
-        uses: actions/checkout@v4
-
-      # Execução do scan
-      - name: XGuardian Security Scan
-        uses: xmart-xguardian/xguardian-actions@main
-        with:
-          api_email: ${{ secrets.API_EMAIL }}
-          api_password: ${{ secrets.API_PASSWORD }}
-          api_token: ${{ secrets.API_TOKEN }}
-          gh_token: ${{ secrets.GH_TOKEN }}
-          app_name: ${{ github.event.repository.name }}
-          scan_directory: "." # Analisando todo o código-fonte por padrão; raiz do projeto/repositório
-          # scan_directory: 'dist' # Descomente e ajuste se quiser analisar apenas o código buildado
-          team_id: "[1]" # Time/equipe número um (1)
-          languages: '["TypeScript", "JavaScript"]' # Linguagens do aplicação
-          description: "Exemplo de Scan SCA" # Descrição da aplicação
-          policy_sca: "0" # ID da politica para scan SCA; "0" = nenhuma politica definida
-          microservices: "false" # Caso a aplicação possua microserviços
-          microservices_data: '[{"name": "Server Node.js", "language": ["JavaScript"]}]' # Dados dos microserviços (nome e linguagem)
-          sca: "true"
+- name: XGuardian SCA Scan
+  uses: xmart-xguardian/xguardian-actions@main
+  with:
+    api_email: ${{ secrets.API_EMAIL }}
+    api_password: ${{ secrets.API_PASSWORD }}
+    app_name: "minha-aplicacao"
+    sca: "true"
+    policy_sca: "0"
+    scan_directory: "."
+    exclude: "node_modules/,dist/,tests/"
+    get_scan_id: "true" # Importante para obter os resultados
 ```
 
 ### Exemplo de Scan DAST
 
 ```yaml
-name: Security DAST Scan
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  security-sast-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checar o código-fonte do repositório
-        uses: actions/checkout@v4
-
-      # Execução do scan
-      - name: XGuardian Security Scan
-        uses: xmart-xguardian/xguardian-actions@main
-        with:
-          api_email: ${{ secrets.API_EMAIL }}
-          api_password: ${{ secrets.API_PASSWORD }}
-          api_token: ${{ secrets.API_TOKEN }}
-          gh_token: ${{ secrets.GH_TOKEN }}
-          app_name: ${{ github.event.repository.name }}
-          dast: "true"
-          policy_dast: "0" # ID da politica para scan DAST; "0" = nenhuma politica definida
-          site_url: "https://example.com" # URL do site para o scan DAST
-          auth_url: "https://example.com/login" # URL de autenticação para DAST
-          logout_url: "https://example.com/logout" # URL de logout para DAST
-          auth_exist: "true" # O site possui autenticação?
-          user_login: "user" # Usuário para autenticação
-          password_login: "password" # Senha para autenticação
-```
-
-## Outputs Disponíveis 📤
-
-| Output         | Descrição                                                           |
-| -------------- | ------------------------------------------------------------------- |
-| `app_id`       | ID da aplicação no XGuardian                                        |
-| `scan_id`      | ID do scan executado                                                |
-| `scan_url`     | URL para visualizar os resultados do scan                           |
-| `scan_version` | Versão/Nome do scan (template: nome do repositório + SHA do commit) |
-
-### Exemplo de uso dos outputs
-
-```yaml
-- name: Executar scan de segurança
-  id: xguardian
+- name: XGuardian DAST Scan
   uses: xmart-xguardian/xguardian-actions@main
   with:
     api_email: ${{ secrets.API_EMAIL }}
     api_password: ${{ secrets.API_PASSWORD }}
-    api_token: ${{ secrets.API_TOKEN }}
-    gh_token: ${{ secrets.GH_TOKEN }}
-    app_name: ${{ github.event.repository.name }}
-    # ... outros parâmetros de configuração ...
-
-- name: Debugando outputs
-  run: |
-    echo "app_id: ${{ steps.xguardian.outputs.app_id }}"
-    echo "scan_id: ${{ steps.xguardian.outputs.scan_id }}"
-    echo "scan_url: ${{ steps.xguardian.outputs.scan_url }}"
-    echo "scan_version: ${{ steps.xguardian.outputs.scan_version }}"
-
-# Exemplo de como checar os resultados do scan
-- name: Verificar status do scan
-  if: always()
-  env:
-    APP_ID: ${{ steps.xguardian.outputs.app_id }}
-    SCAN_ID: ${{ steps.xguardian.outputs.scan_id }}
-    SCAN_URL: ${{ steps.xguardian.outputs.scan_url }}
-    SCAN_VERSION: ${{ steps.xguardian.outputs.scan_version }}
-  run: |
-    if [ "${{ steps.xguardian.outcome }}" == "success" ]; then
-      # Verificar se as variáveis estão definidas
-      if [ -n "$APP_ID" ] && [ -n "$SCAN_ID" ] && [ -n "$SCAN_URL" ]; then
-        echo "✅ Scan iniciado com sucesso!"
-        echo "🆔 App ID: $APP_ID"
-        echo "📝 Scan ID: $SCAN_ID"
-        echo "🔖 Nome do Scan: $SCAN_VERSION"
-        echo "📊 Resultados ficarão disponíveis em: $SCAN_URL"
-      else
-        echo "⚠️ Scan iniciado, mas algumas informações do output estão faltando:"
-        echo "APP_ID: ${APP_ID:-'não definido'}"
-        echo "SCAN_ID: ${SCAN_ID:-'não definido'}"
-        echo "SCAN_URL: ${SCAN_URL:-'não definido'}"
-        echo "SCAN_VERSION: ${SCAN_VERSION:-'não definido'}"
-        exit 1
-      fi
-    else
-      echo "❌ Falha no scan de segurança"
-      exit 1
-    fi
+    app_name: "meu-website"
+    dast: "true"
+    policy_dast: "0"
+    site_url: "https://meu-site.com"
+    auth_url: "https://meu-site.com/login"
+    logout_url: "https://meu-site.com/logout"
+    auth_exist: true
+    user_login: "usuario_teste"
+    password_login: ${{ secrets.SITE_PASSWORD }}
+    get_scan_id: "true" # Importante para obter os resultados
 ```
 
-> **Nota**: Os outputs podem ser utilizados em steps subsequentes para integração com outras ferramentas ou para notificações personalizadas.
+### Exemplo Combinando Múltiplos Scans
 
-### Exemplo para notificar no Microsoft Teams
+```yaml
+- name: XGuardian Full Security Scan
+  id: xguardian-scan
+  uses: xmart-xguardian/xguardian-actions@main
+  with:
+    api_email: ${{ secrets.API_EMAIL }}
+    api_password: ${{ secrets.API_PASSWORD }}
+    app_name: "aplicacao-completa"
+    team_id: "[1]"
+    languages: '["JavaScript", "Python"]'
+
+    # Habilitar múltiplos tipos de scan
+    sast: "true"
+    sca: "true"
+    dast: "true"
+
+    # Configurações DAST
+    site_url: "https://meu-site.com"
+    auth_exist: false
+
+    # Configurações adicionais
+    pdf: "true"
+    translate: "true"
+    get_scan_id: "true"
+```
+
+### Exemplo em Pull Requests
+
+Configure o scan para executar em pull requests, ajudando a garantir que novo código não introduza vulnerabilidades:
+
+```yaml
+name: XGuardian Security Check
+on:
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Importante para análises que comparam com versões anteriores
+
+      - name: XGuardian Security Scan
+        id: xguardian
+        uses: xmart-xguardian/xguardian-actions@main
+        with:
+          api_email: ${{ secrets.API_EMAIL }}
+          api_password: ${{ secrets.API_PASSWORD }}
+          app_name: ${{ github.event.repository.name }}
+          sast: "true"
+          sca: "true"
+          get_scan_id: "true"
+
+      - name: Comentar no Pull Request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔍 Análise de Segurança XGuardian
+              
+              A análise de segurança foi concluída para este PR.
+              
+              - **App ID**: ${{ steps.xguardian.outputs.app_id }}
+              - **Scan ID**: ${{ steps.xguardian.outputs.scan_id }}
+              - **Versão**: ${{ steps.xguardian.outputs.scan_version }}
+              
+              [📊 Ver Resultados Completos](${{ steps.xguardian.outputs.scan_url }})`
+            })
+```
+
+## Outputs Disponíveis 📤
+
+Este action fornece outputs que você pode usar em etapas subsequentes do seu workflow para vincular relatórios ou acionar notificações.
+
+| Output       | Descrição                                               | Disponibilidade                  |
+| ------------ | ------------------------------------------------------- | -------------------------------- |
+| app_id       | ID da aplicação no XGuardian                            | Sempre que `get_scan_id: "true"` |
+| scan_id      | ID do scan executado                                    | Sempre que `get_scan_id: "true"` |
+| scan_url     | URL para visualizar os resultados do scan               | Sempre que `get_scan_id: "true"` |
+| scan_version | Nome/versão do scan (nome da aplicação + SHA do commit) | Sempre disponível                |
+
+> **⚠️ Importante:** Para acessar esses outputs, você precisa definir `get_scan_id: "true"` e adicionar um `id` ao step.
+
+### Uso dos Outputs
+
+```yaml
+- name: XGuardian Security Scan
+  id: xguardian # ID necessário para referenciar os outputs
+  uses: xmart-xguardian/xguardian-actions@main
+  with:
+    api_email: ${{ secrets.API_EMAIL }}
+    api_password: ${{ secrets.API_PASSWORD }}
+    app_name: "minha-aplicacao"
+    sast: "true"
+    get_scan_id: "true" # Necessário para gerar os outputs
+
+- name: Verificar resultados
+  run: |
+    echo "✅ Scan iniciado com sucesso!"
+    echo "🆔 App ID: ${{ steps.xguardian.outputs.app_id }}"
+    echo "📝 Scan ID: ${{ steps.xguardian.outputs.scan_id }}"
+    echo "🔖 Versão: ${{ steps.xguardian.outputs.scan_version }}"
+    echo "📊 Resultados: ${{ steps.xguardian.outputs.scan_url }}"
+```
+
+### Integração com Microsoft Teams
 
 ```yaml
 - name: Notificar no Microsoft Teams
   uses: aliencube/microsoft-teams-actions@v0.8.0
-  env:
-    APP_ID: ${{ steps.xguardian.outputs.app_id }}
-    SCAN_ID: ${{ steps.xguardian.outputs.scan_id }}
-    SCAN_URL: ${{ steps.xguardian.outputs.scan_url }}
-    SCAN_VERSION: ${{ steps.xguardian.outputs.scan_version }}
   with:
     webhook_uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
     title: "Scan de Segurança XGuardian"
@@ -328,50 +342,107 @@ jobs:
         "activityTitle": "Scan de Segurança Finalizado",
         "activitySubtitle": "${{ github.repository }} - ${{ github.ref_name }}",
         "facts": [
-          {
-            "name": "Status",
-            "value": "${{ job.status }}"
-          },
-          {
-            "name": "Aplicação",
-            "value": "${{ APP_ID }}"
-          },
-          {
-            "name": "Scan ID",
-            "value": "${{ SCAN_ID }}"
-          },
-          {
-            "name": "Versão",
-            "value": "${{ SCAN_VERSION }}"
-          }
+          { "name": "Status", "value": "${{ job.status }}" },
+          { "name": "App ID", "value": "${{ steps.xguardian.outputs.app_id }}" },
+          { "name": "Scan ID", "value": "${{ steps.xguardian.outputs.scan_id }}" },
+          { "name": "Versão", "value": "${{ steps.xguardian.outputs.scan_version }}" }
         ],
         "potentialAction": [
           {
             "@type": "OpenUri",
             "name": "Ver Resultados",
-            "targets": [
-              {
-                "os": "default",
-                "uri": "${{ SCAN_URL }}"
-              }
-            ]
+            "targets": [{ "os": "default", "uri": "${{ steps.xguardian.outputs.scan_url }}" }]
           }
         ]
       }]
 ```
 
-> **Nota**: Para utilizar esta integração, é necessário configurar um webhook no Microsoft Teams e adicioná-lo como segredo no repositório (`MS_TEAMS_WEBHOOK_URI`). [Saiba mais sobre webhooks do Microsoft Teams](https://learn.microsoft.com/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook).
-
-### Exemplo para notificar no Slack
+### Integração com Slack
 
 ```yaml
 - name: Notificar no Slack
   uses: rtCamp/action-slack-notify@v2
   env:
-    SLACK_WEBHOOK: secrets.SLACK_WEBHOOK
+    SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+    SLACK_TITLE: "XGuardian Security Scan"
     SLACK_MESSAGE: |
-      Build e Scan concluídos
-      Repositório: github.repository
-      Branch: github.ref_name
-      Resultados: steps.xguardian.outputs.scan_url
+      *Scan de segurança concluído*
+      • Repositório: ${{ github.repository }}
+      • Branch: ${{ github.ref_name }}
+      • App ID: ${{ steps.xguardian.outputs.app_id }}
+      • Scan ID: ${{ steps.xguardian.outputs.scan_id }}
+      • Resultados: ${{ steps.xguardian.outputs.scan_url }}
+    SLACK_COLOR: ${{ job.status == 'success' && 'good' || 'danger' }}
 ```
+
+## Perguntas Frequentes ❓
+
+### Quanto tempo leva um scan completo?
+
+O tempo varia conforme o tamanho do projeto e os tipos de scan habilitados:
+
+- **SAST**: 2-10 minutos para projetos pequenos a médios
+- **SCA**: 1-5 minutos dependendo do número de dependências
+- **DAST**: 10-60 minutos dependendo do tamanho e complexidade do site
+
+Durante o scan, o action mostra barras de progresso e você pode verificar o status na interface do GitHub Actions.
+
+### Posso usar este Action em repositórios privados?
+
+Sim, o XGuardian Security Scan funciona tanto em repositórios públicos quanto privados. As credenciais são transmitidas de forma segura usando os secrets do GitHub.
+
+### O que fazer se o scan falhar?
+
+Se o scan falhar, siga estes passos para diagnóstico e resolução:
+
+1. **Verificar logs do workflow**: Examine detalhadamente os logs para identificar a etapa exata onde ocorreu a falha
+
+2. **Problemas comuns e soluções**:
+
+   - **Credenciais inválidas**: Verifique se o email e senha fornecidos são válidos e têm permissões adequadas
+   - **Problemas de conexão**: Confirme que há conectividade com a API XGuardian (especialmente em ambientes com firewalls restritos)
+   - **URL para DAST mal configurada**: Para scans DAST, verifique se a URL do site alvo está acessível e formatada corretamente
+   - **Falha no upload de arquivos**: Verifique se o diretório de scan contém arquivos válidos e não ultrapassa limites de tamanho
+   - **Timeout na obtenção do Scan ID**: Aumente o tempo de espera antes de buscar o ID do scan definindo `get_scan_id: "true"`
+   - **Falha na criação do arquivo ZIP**: Verifique se há permissões de escrita no diretório de trabalho
+
+3. **Valores incorretos nos parâmetros**:
+
+   - Confirme que `app_name` contém apenas caracteres válidos
+   - Verifique se `team_id` e `languages` estão formatados corretamente como arrays JSON
+
+4. **Se o problema persistir**:
+   - Entre em contato com a equipe de suporte do XGuardian para assistência adicional
+
+### Como configurar alertas para vulnerabilidades críticas?
+
+Use a integração com Microsoft Teams ou Slack conforme os exemplos fornecidos. Você também pode configurar:
+
+1. **Falha do build em vulnerabilidades críticas**:
+
+   ```yaml
+   with:
+     pipeaction: "fail" # Falhará o build quando encontrar vulnerabilidades críticas
+   ```
+
+2. **Alertas customizados**:
+   Combine os outputs do scan com outras actions para criar alertas personalizados baseados na severidade das vulnerabilidades.
+
+## Modo de Desenvolvimento
+
+Para utilizar o ambiente de desenvolvimento da plataforma XGuardian, adicione o parâmetro is_development: "true" à configuração do action. Isso redirecionará as requisições para o ambiente de desenvolvimento invés do ambiente de produção.
+
+```yaml
+- name: XGuardian Security Scan (Dev)
+  uses: xmart-xguardian/xguardian-actions@main
+  with:
+    api_email: ${{ secrets.API_EMAIL }}
+    api_password: ${{ secrets.API_PASSWORD }}
+    is_development: "true"
+    app_name: "teste-dev"
+    sast: "true"
+```
+
+## Suporte
+
+Para dúvidas ou problemas relacionados a este action, entre em contato com a equipe de suporte XGuardian através do email <suporte@xmartsolutions.com> ou abra uma issue no repositório do GitHub em <https://github.com/xmart-xguardian/xguardian-actions/issues>.
