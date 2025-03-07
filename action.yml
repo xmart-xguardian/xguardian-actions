@@ -1,137 +1,183 @@
+# =====================================================================
+# XGuardian Security Scanning Action
+# =====================================================================
+# Versão: v25.3.0
+# Autor: Xmart Solutions
+#
+# Esta action realiza scans de segurança automatizados para a plataforma XGuardian.
+# Suporta análises SAST (Source Code Analysis), SCA (Software Composition Analysis),
+# e DAST (Dynamic Application Security Testing).
+#
+# Requisitos:
+#  - Credenciais de acesso à plataforma XGuardian (email/senha)
+#  - Escolha de pelo menos um tipo de scan (SAST, SCA ou DAST)
+#  - Para DAST: URL do site a ser analisado
+#
+# Para mais informações, visite: https://github.com/marketplace/actions/xguardian-scanning
+# =====================================================================
+
 name: XGuardian Scanning
 description: "Realize análises de segurança (SAST/SCA ou DAST) de forma automatizada direto do Github Actions para plataforma XGuardian."
 author: "Xmart Solutions"
 
 branding:
-  icon: "XGuardian.png"
-  color: purple # Cor roxo900 [#2C1161] - XGuardian
+  icon: "shield"
+  color: purple
   label: Security Scanning
-version: v25.1.0
+version: v25.3.0
 
 inputs:
-  # Variáveis de segredo obrigatórias
-  # Email, senha, token de autenticação e token do GitHub
+  # ========================================================================================
+  # CREDENCIAIS OBRIGATÓRIAS
+  # ========================================================================================
   api_email:
-    description: "O e-mail para login/autenticação na API."
+    description: "Email de acesso à plataforma XGuardian. Recomenda-se usar secrets do GitHub."
     required: true
   api_password:
-    description: "A senha para login/autenticação na API."
-    required: true
-  api_token:
-    description: "O token de autenticação obtido durante o login."
-    required: true
-  gh_token:
-    description: "Token de acesso ao Github necessário para utilizar o comando gh CLI."
+    description: "Senha de acesso à plataforma XGuardian. Recomenda-se usar secrets do GitHub."
     required: true
 
-  # Nome da aplicação (default: nome do repositório)
-  # Usado para criar a aplicação no XGuardian
+  # ========================================================================================
+  # CONFIGURAÇÃO DA APLICAÇÃO
+  # ========================================================================================
   app_name:
-    description: "O nome da aplicação."
+    description: "Nome da aplicação a ser escaneada. Usado para identificação na plataforma XGuardian."
     required: true
-
-  # Opcionais (mas, com valores default)
-  # Configurações para criar a aplicação no XGuardian (caso não exista)
   team_id:
-    description: "O(s) ID(s) da(s) equipe(s)."
+    description: "ID(s) da(s) equipe(s) responsável(is) pela aplicação no formato JSON. Ex: [1] ou [1,2,3]"
     default: "[1]"
+    required: true
   languages:
-    description: "A(s) linguagem(ns) da aplicação."
+    description: 'Linguagens de programação da aplicação no formato JSON array. Ex: ["JavaScript"] ou ["Java", "Python"]'
     default: '["JavaScript"]'
+    required: true
   description:
-    description: "A descrição da aplicação."
+    description: "Descrição da aplicação que será exibida na plataforma XGuardian."
     default: "Aplicação criada através do GitHub Actions - XGuardian"
+    required: false
   policy_sast:
-    description: "O ID da política de SAST."
+    description: "ID da política de SAST (análise estática) a ser aplicada. Use 0 para política padrão."
     default: "0"
+    required: false
   policy_sca:
-    description: "O ID da política de SCA."
+    description: "ID da política de SCA (análise de componentes) a ser aplicada. Use 0 para política padrão."
     default: "0"
+    required: false
   policy_dast:
-    description: "O ID da política de DAST."
+    description: "ID da política de DAST (análise dinâmica) a ser aplicada. Use 0 para política padrão."
     default: "0"
+    required: false
   microservices:
-    description: "A aplicação possui microserviços?"
+    description: "Indica se a aplicação possui microserviços. Valores aceitos: true ou false"
     default: "false"
+    required: false
   microservices_data:
-    description: "O(s) dados do(s) microserviço(s): Nome(s) e linguagem(ns)."
+    description: 'Dados dos microserviços no formato JSON array. Ex: [{"name": "MS1", "language": ["JavaScript"]}]'
     default: '[{"name": "MS1", "language": ["JavaScript"]}]'
+    required: false
 
-  # Seleção do tipo de scan (SAST e/ou SCA ou DAST)
+  # ========================================================================================
+  # SELEÇÃO DO TIPO DE SCAN
+  # ========================================================================================
   sast:
-    description: "Vai ser realizado o scan SAST?"
-    default: '"false"'
+    description: "Ativa o scan SAST (análise estática de código fonte). Valores aceitos: true ou false"
+    default: "false"
     type: string
+    required: false
   sca:
-    description: "Vai ser realizado o scan SCA?"
-    default: '"false"'
+    description: "Ativa o scan SCA (análise de composição de software/dependências). Valores aceitos: true ou false"
+    default: "false"
     type: string
+    required: false
   dast:
-    description: "Vai ser realizado o scan DAST?"
-    default: '"false"'
+    description: "Ativa o scan DAST (análise dinâmica de segurança). Valores aceitos: true ou false"
+    default: "false"
     type: string
+    required: false
 
-  # Configurações para o scan DAST
+  # ========================================================================================
+  # CONFIGURAÇÕES PARA O SCAN DAST
+  # ========================================================================================
   site_url:
-    description: "O URL do site para o scan DAST."
+    description: "URL completa do site para análise DAST. Obrigatório se dast=true."
     default: ""
     required: false
     type: string
   auth_url:
-    description: "O URL de autenticação/login para o scan DAST."
+    description: "URL da página de autenticação/login para o scan DAST."
     default: ""
     required: false
     type: string
   logout_url:
-    description: "O URL de logout para o scan DAST."
+    description: "URL da página de logout para o scan DAST."
     default: ""
     required: false
     type: string
   auth_exist:
-    description: "O site possui autenticação?"
+    description: "Indica se o site requer autenticação para o scan DAST. Valores aceitos: true ou false"
     default: false
     required: false
     type: boolean
   user_login:
-    description: "O usuário para autenticação."
+    description: "Nome de usuário para autenticação no site durante o scan DAST."
     default: ""
     required: false
     type: string
   password_login:
-    description: "A senha para autenticação."
+    description: "Senha para autenticação no site durante o scan DAST. Recomenda-se usar secrets do GitHub."
     default: ""
     required: false
     type: string
 
-  # Configurações adicionais para o scan
+  # ========================================================================================
+  # CONFIGURAÇÕES ADICIONAIS PARA O SCAN
+  # ========================================================================================
   translate:
-    description: "O relatório será traduzido para português do Brasil?"
+    description: "Traduz o relatório para português do Brasil. Valores aceitos: true ou false"
     default: "false"
     type: string
-  exclude:
-    description: "Diretórios ou arquivos a serem excluídos do scan."
-    default: '""'
-  pdf:
-    description: "O relatório será gerado em PDF detalhado?"
-    default: "false"
-    type: string
-  pipeaction:
-    description: "Ação na pipeline em caso de vulnerabilidades (warn, fail, noAction)."
-    default: "noAction"
     required: false
+  exclude:
+    description: "Lista de diretórios ou arquivos a serem excluídos do scan. Ex: 'node_modules/,dist/'"
+    default: ""
     type: string
-
-  # Configurações opcionais (caso o usuário deseje)
-  scan_directory:
-    description: "Diretório que será zipado para o scan (ex: 'dist' para código buildado)"
-    default: "." # Root do projeto
-  get_scan_id:
-    description: "Deseja buscar o ID do Scan após o upload?"
-    default: '"false"'
-    type: string
-  save_vulns:
-    description: "Permitir salvar vulnerabilidades no banco de dados?"
+    required: false
+  pdf:
+    description: "Gera relatório detalhado em PDF após o scan. Valores aceitos: true ou false"
     default: "false"
+    type: string
+    required: false
+  pipeaction:
+    description: "Ação a executar na pipeline quando vulnerabilidades são encontradas. Valores: warn, fail, noAction"
+    default: "noAction"
+    type: string
+    required: false
+
+  # ========================================================================================
+  # CONFIGURAÇÕES DE AMBIENTE
+  # ========================================================================================
+  is_development:
+    description: "Indica se o ambiente é de desenvolvimento para usar URLs de teste. Valores aceitos: true ou false"
+    default: "false"
+    type: string
+    required: false
+
+  # ========================================================================================
+  # CONFIGURAÇÕES OPCIONAIS
+  # ========================================================================================
+  scan_directory:
+    description: "Diretório específico que será zipado para o scan. Use '.' para analisar todo o repositório."
+    default: "."
+    required: false
+  get_scan_id:
+    description: "Busca o ID do scan após o upload para acompanhamento. Valores aceitos: true ou false"
+    default: "false"
+    type: string
+    required: false
+  save_vulns:
+    description: "Salva as vulnerabilidades encontradas no banco de dados do XGuardian. Valores aceitos: true ou false"
+    default: "false"
+    required: false
 
 outputs:
   app_id:
@@ -150,18 +196,67 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Validando inputs sensíveis
+    - name: Definir URLs do XGuardian
+      id: set-urls
+      shell: bash
+      run: |
+        if [ "${{ inputs.is_development }}" == "true" ]; then
+          echo "BASE_URL"="https://shield.development.xguardianplatform.io" >> $GITHUB_ENV
+          echo "UPLOADER_URL=https://uploader-mvp.development.xguardianplatform.io" >> $GITHUB_ENV
+          echo "REPORTER_URL=https://reporter.development.xguardianplatform.io" >> $GITHUB_ENV
+          echo "AUTH_URL=https://auth.development.xguardianplatform.io" >> $GITHUB_ENV
+        else
+          echo "BASE_URL"="https://shield.xguardianplatform.io" >> $GITHUB_ENV
+          echo "UPLOADER_URL=https://uploader-mvp.xguardianplatform.io" >> $GITHUB_ENV
+          echo "REPORTER_URL=https://reporter.xguardianplatform.io" >> $GITHUB_ENV
+          echo "AUTH_URL=https://auth.xguardianplatform.io" >> $GITHUB_ENV
+        fi
+
+    - name: Verificar o ambiente antes de prosseguir
+      shell: bash
+      run: |
+        echo "::group::🔍 VERIFICAÇÃO DO AMBIENTE"
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ VERIFICANDO VARIÁVEIS DE AMBIENTE                       │"
+        echo "└─────────────────────────────────────────────────────────┘"
+
+        # Lista de variáveis essenciais para verificar
+        check_var() {
+          local var_name="$1"
+          local var_value="${!var_name}"
+          
+          if [ -z "$var_value" ]; then
+            echo "⚠️ Variável $var_name não definida. Isso pode causar problemas."
+            return 1
+          else
+            echo "✅ $var_name: OK"
+            return 0
+          fi
+        }
+
+        # Verificar variáveis de ambiente essenciais
+        errors=0
+        check_var "BASE_URL" || ((errors++))
+        check_var "UPLOADER_URL" || ((errors++))
+        check_var "REPORTER_URL" || ((errors++))
+        check_var "AUTH_URL" || ((errors++))
+
+        if [ $errors -gt 0 ]; then
+          echo "⚠️ Uma ou mais variáveis de ambiente essenciais não estão definidas."
+          echo "O processo continuará, mas poderá encontrar erros."
+        else
+          echo "✅ Todas as variáveis de ambiente essenciais estão definidas."
+        fi
+        echo "::endgroup::"
+
+    - name: Validando input secrets de email e senha
       shell: bash
       env:
         API_EMAIL: ${{ inputs.api_email }}
         API_PASSWORD: ${{ inputs.api_password }}
-        API_TOKEN: ${{ inputs.api_token }}
-        GH_TOKEN: ${{ inputs.gh_token }}
       run: |
         echo "API_EMAIL: $API_EMAIL"
         echo "API_PASSWORD: $API_PASSWORD"
-        echo "API_TOKEN: $API_TOKEN"
-        echo "GH_TOKEN: $GH_TOKEN"
 
         # Validar formato de email
         if [[ ! "$API_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
@@ -172,50 +267,71 @@ runs:
         # Validar comprimento mínimo da senha
         PASSWORD_LENGTH=$(echo -n "$API_PASSWORD" | wc -c)
         if [ $PASSWORD_LENGTH -lt 8 ]; then
-          echo "Error: Senha deve ter pelo menos 8 caracteres"
+          echo "::error::Senha deve ter pelo menos 8 caracteres"
           exit 1
         fi
 
-        # Validar formato do GH Token (fine-grained)
-        if [[ ! "$GH_TOKEN" =~ ^github_pat_[A-Za-z0-9_]{0,255}$ ]]; then
-          echo "::error:: O token deve ser um GitHub fine-grained PAT (começando com 'github_pat_')"
+        echo "Todos os inputs sensíveis são válidos."
+
+    - name: Validar tipos de scan
+      shell: bash
+      env:
+        SAST: ${{ inputs.sast }}
+        SCA: ${{ inputs.sca }}
+        DAST: ${{ inputs.dast }}
+      run: |
+        if [ "${SAST}" != "true" ] && [ "${SCA}" != "true" ] && [ "${DAST}" != "true" ]; then
+          echo "::error::Pelo menos um tipo de scan (SAST, SCA ou DAST) deve estar habilitado."
           exit 1
         fi
 
-        # Validar API Token
-        if [ -z "$API_TOKEN" ]; then
-          echo "::error::API token não pode estar vazio"
+        if [ "${DAST}" == "true" ] && [ -z "${{ inputs.site_url }}" ]; then
+          echo "::error::site_url é obrigatório quando o scan DAST está habilitado."
           exit 1
         fi
 
     - name: Validar e renovar token se necessário
       shell: bash
       env:
+        AUTH_URL: ${{ env.AUTH_URL }}
         API_EMAIL: ${{ inputs.api_email }}
         API_PASSWORD: ${{ inputs.api_password }}
-        API_TOKEN: ${{ inputs.api_token }}
       run: |
+        echo "::group::Validação de token de API"
         set -e
 
         renew_token() {
-          echo "Renovando token..."
-          response=$(curl -s -X POST 'https://auth.xguardianplatform.io/login' \
-            -H 'accept: application/json' \
-            -H 'Content-Type: application/json' \
-            -d '{"email": "'${API_EMAIL}'", "password": "'${API_PASSWORD}'"}' | jq -r '.token')
+            echo "Renovando token..."
+            local max_attempts=3
+            local attempt=1
             
-          if [[ -n "$response" && "$response" != "null" ]]; then
-            echo "Novo token obtido com sucesso."
-            echo "API_TOKEN=$response" >> $GITHUB_ENV
-            API_TOKEN=$response
-          else
-            echo "::error::Falha ao obter novo token."
+            while [ $attempt -le $max_attempts ]; do
+                echo "Tentativa $attempt de $max_attempts para renovar token..."
+                
+                response=$(curl -s --connect-timeout 10 --max-time 30 -X POST "${AUTH_URL}/login" \
+                  -H 'accept: application/json' \
+                  -H 'Content-Type: application/json' \
+                  -d '{"email": "'${API_EMAIL}'", "password": "'${API_PASSWORD}'"}' | jq -r '.token')
+                
+                if [[ -n "$response" && "$response" != "null" ]]; then
+                  echo "Novo token obtido com sucesso."
+                  echo "API_TOKEN=$response" >> $GITHUB_ENV
+                  API_TOKEN=$response
+                  return 0
+                fi
+                
+                echo "Falha na tentativa $attempt. Aguardando antes de tentar novamente..."
+                sleep $(( attempt * 5 ))
+                attempt=$((attempt+1))
+            done
+            
+            echo "::error::Todas as tentativas de renovação de token falharam."
+            echo "::endgroup::"
             exit 1
-          fi
         }
 
         echo "Verificando validade do token..."
-        test_response=$(curl -s -X GET 'https://auth.xguardianplatform.io/ping' \
+        test_response=$(curl -s -X GET "${AUTH_URL}/ping" \
           -H 'accept: application/json' \
           -H "Authorization: Bearer ${API_TOKEN}")
 
@@ -224,57 +340,129 @@ runs:
         else
           echo "Token válido."
         fi
+        echo "::endgroup::"
+
+    - name: Exibir informações iniciais do processo
+      shell: bash
+      env:
+        APP_NAME: ${{ inputs.app_name }}
+        SAST: ${{ inputs.sast }}
+        SCA: ${{ inputs.sca }}
+        DAST: ${{ inputs.dast }}
+        SITE_URL: ${{ inputs.site_url }}
+        BASE_URL: ${{ env.BASE_URL }}
+        REPORTER_URL: ${{ env.REPORTER_URL }}
+        UPLOADER_URL: ${{ env.UPLOADER_URL }}
+        AUTH_URL: ${{ env.AUTH_URL }}
+        SCAN_DIR: ${{ inputs.scan_directory }}
+        DEVELOPMENT: ${{ inputs.is_development }}
+      run: |
+        echo "::group::XGuardian Security Scan - Iniciando"
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ XGuardian Security Scan - Configuração Inicial          │"
+        echo "├─────────────────────────────────────────────────────────┤"
+        echo "│ Aplicação: ${APP_NAME}"
+        echo "│ Ambiente: $([ "${DEVELOPMENT}" == "true" ] && echo "Desenvolvimento" || echo "Produção")"
+        echo "│ Tipos de scan habilitados:"
+        [ "${SAST}" == "true" ] && echo "│  ✅ SAST - Source Code Analysis"
+        [ "${SCA}" == "true" ] && echo "│  ✅ SCA - Software Composition Analysis"
+        [ "${DAST}" == "true" ] && echo "│  ✅ DAST - Dynamic Application Security Testing"
+
+        if [ "${DAST}" == "true" ]; then
+          echo "│  🔗 URL alvo DAST: ${SITE_URL}"
+        fi
+
+        echo "│"
+        echo "│ Diretório para scan: ${SCAN_DIR}"
+        echo "│"
+        echo "│ URLs XGuardian:"
+        echo "│  🔗 Base: ${BASE_URL}"
+        echo "│  🔗 Uploader: ${UPLOADER_URL}"
+        echo "│  🔗 Reporter: ${REPORTER_URL}"
+        echo "│  🔗 Auth: ${AUTH_URL}"
+        echo "└─────────────────────────────────────────────────────────┘"
+        echo "::endgroup::"
+
+        # Criar log com hora de início para cálculo de duração total
+        echo "$(date +%s)" > /tmp/xguardian_start_time
 
     - name: Instalar dependências
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.gh_token }}
       run: |
-        echo "Atualizando pacotes..."
-        sudo apt-get update
-        # Instalar todas as dependências necessárias de uma vez
-        sudo apt-get install -y curl jq zip
+        echo "::group::Instalação de dependências"
+        echo "📦 Atualizando pacotes do sistema..."
+        sudo apt-get update -qq > /dev/null
 
-        # Instalar GitHub CLI
-        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-        && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
-        && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-        && sudo apt update \
-        && sudo apt install gh -y
+        echo "📥 Instalando ferramentas necessárias (curl, jq, zip)..."
+        sudo apt-get install -y --no-install-recommends curl jq zip > /dev/null
+
+        echo "✅ Dependências básicas instaladas com sucesso!"
+        echo "::endgroup::"
 
     - name: Fazer login na API e armazenar o token
       shell: bash
       env:
+        AUTH_URL: ${{ env.AUTH_URL }}
         API_EMAIL: ${{ inputs.api_email }}
         API_PASSWORD: ${{ inputs.api_password }}
-        GITHUB_TOKEN: ${{ inputs.gh_token }}
       run: |
-        # Remover ou comentar estes logs de debug em produção
-        echo "Debug: API_EMAIL: ${API_EMAIL}"
-        echo "Debug: API_PASSWORD: ${API_PASSWORD}"
+        echo "::group::🔐 AUTENTICAÇÃO NA API XGUARDIAN"
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ INICIANDO PROCESSO DE AUTENTICAÇÃO                      │"
+        echo "└─────────────────────────────────────────────────────────┘"
 
-        # Gera um novo token
-        response=$(curl -X 'POST' 'https://auth.xguardianplatform.io/login' \
-          -H 'accept: application/json' \
-          -H 'Content-Type: application/json' \
-          -d '{
-            "email": "'"${API_EMAIL}"'",
-            "password": "'"${API_PASSWORD}"'"
-          }' | jq -r '.token')
+        # Função para tratamento de erros
+        handle_error() {
+          local error_msg="$1"
+          local exit_code="${2:-1}"
           
-        if [ -n "$response" ] && [ "$response" != "null" ]; then
-          echo -n "$response" | gh secret set API_TOKEN
-          echo "API_TOKEN=$response" >> $GITHUB_ENV
-          echo "Token atualizado com sucesso."
-        else
-          echo "::error::Não foi possível obter o token de autenticação."
-          exit 1
-        fi
+          echo "┌─────────────────────────────────────────────────────────┐"
+          echo "│ ❌ ERRO: $error_msg                                     │"
+          echo "└─────────────────────────────────────────────────────────┘"
+          echo "::error::$error_msg"
+          echo "::endgroup::"
+          exit "$exit_code"
+        }
+
+        # Função para fazer login com retry
+        login_with_retry() {
+          local max_attempts=3
+          local attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            echo "🔄 Tentativa $attempt de $max_attempts para obter token..."
+            
+            response=$(curl -s -X 'POST' "${AUTH_URL}/login" \
+              -H 'accept: application/json' \
+              -H 'Content-Type: application/json' \
+              -d '{
+                "email": "'"${API_EMAIL}"'",
+                "password": "'"${API_PASSWORD}"'"
+              }' | jq -r '.token')
+              
+            if [ -n "$response" ] && [ "$response" != "null" ]; then
+              echo "API_TOKEN=$response" >> $GITHUB_ENV
+              echo "✅ Token obtido com sucesso!"
+              return 0
+            fi
+            
+            echo "⚠️ Falha na tentativa $attempt. Aguardando antes de tentar novamente..."
+            sleep $(( attempt * 5 ))
+            attempt=$((attempt+1))
+          done
+          
+          handle_error "Todas as tentativas de login falharam. Verifique suas credenciais ou a disponibilidade da API."
+        }
+
+        login_with_retry
+        echo "::endgroup::"
 
     - name: Verificar se a aplicação existe, caso contrário, cria a aplicação
       shell: bash
       env:
+        UPLOADER_URL: ${{ env.UPLOADER_URL }}
         APP_NAME: ${{ inputs.app_name }}
+        API_TOKEN: ${{ env.API_TOKEN }}
         TEAM_ID: ${{ inputs.team_id }}
         LANGUAGES: ${{ inputs.languages }}
         DESCRIPTION: ${{ inputs.description }}
@@ -284,168 +472,245 @@ runs:
         MICROSERVICES: ${{ inputs.microservices }}
         MICROSERVICES_DATA: ${{ inputs.microservices_data }}
       run: |
+        echo "::group::Verificando e configurando aplicação"
         # Converte caracteres especiais para espaços, mantendo espaços existentes
         CLEAN_APP_NAME=$(echo "${APP_NAME}" | tr -c '[:alnum:] ' ' ')
 
-        CREATE_APP_URL="https://uploader-mvp.xguardianplatform.io/create_app"
+        # Alteração para `create_apps` por conta da remoção de políticas do payload
+        # "${UPLOADER_URL}/docs#/apps/create_app_create_apps_post"
+        CREATE_APP_URL="${UPLOADER_URL}/create_apps"
 
-        DATA=$(cat << EOF
-        {
-          "app_name": "${APP_NAME}",
-          "team_id": ${TEAM_ID},
-          "languages": ${LANGUAGES},
-          "description": "${DESCRIPTION}",
-          "policy": 0,
-          "policy_sast": ${POLICY_SAST},
-          "policy_sca": ${POLICY_SCA},
-          "policy_dast": ${POLICY_DAST},
-          "policy_container": 0,
-          "microservices": $([[ "${MICROSERVICES}" == "true" ]] && echo true || echo false)
-          $([[ "${MICROSERVICES}" == "true" ]] && echo ',
-          "microservices_data": ${MICROSERVICES_DATA}')
-        }
-        EOF
-        )
-
-        RESPONSE=$(curl -sS -X POST "${CREATE_APP_URL}" \
+        # Verificar se a aplicação já existe
+        EXISTING_APP=$(curl -sS -X GET \
+          "${UPLOADER_URL}/get_apps_new?page=1&items_per_page=10" \
           -H 'accept: application/json' \
-          -H "Authorization: Bearer ${API_TOKEN}" \
-          -H 'Content-Type: application/json' \
-          -d "${DATA}")
+          -H "Authorization: Bearer ${API_TOKEN}")
 
-        # Tentar extrair app_id do response
-        APP_ID=$(echo "$RESPONSE" | jq -r '.app_id')
+        # Verifica se a resposta é um JSON válido
+        if ! echo "$EXISTING_APP" | jq . >/dev/null 2>&1; then
+          echo "::error::Resposta da API não é um JSON válido: $EXISTING_APP"
+          exit 1
+        fi
 
-        if [ "$APP_ID" != "null" ] && [ ! -z "$APP_ID" ]; then
-          echo "Aplicação criada com sucesso. APP_ID: $APP_ID"
-          echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+        # Buscar o APP_ID da aplicação existente mais recente com o mesmo nome
+        APP_ID=$(echo "$EXISTING_APP" | jq -r --arg NAME "$APP_NAME" '.data[] | select(.name == $NAME) | .id' | head -n 1)
 
-          POLICY_SAST=$(echo "$RESPONSE" | jq -r '.policies_id_sast')
-          POLICY_SCA=$(echo "$RESPONSE" | jq -r '.policies_id_sca')
-          POLICY_DAST=$(echo "$RESPONSE" | jq -r '.policies_id_dast')
-
-          if [ -n "$POLICY_SAST" ]; then
-            echo "POLICY_SAST=$POLICY_SAST" >> $GITHUB_ENV
-          fi
-
-          if [ -n "$POLICY_SCA" ]; then
-            echo "POLICY_SCA=$POLICY_SCA" >> $GITHUB_ENV
-          fi
-
-          if [ -n "$POLICY_DAST" ]; then
-            echo "POLICY_DAST=$POLICY_DAST" >> $GITHUB_ENV
+        if [ -n "$APP_ID" ]; then
+          echo "APP_ID encontrado: $APP_ID para a aplicação: $APP_NAME"
+          
+          # Verificar se o comando jq funciona corretamente com a resposta
+          if ! echo "$EXISTING_APP" | jq . > /dev/null 2>&1; then
+            echo "::warning::Resposta da API contém JSON malformado. Usando valores padrão para políticas."
+            echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+            echo "POLICY_SAST=0" >> $GITHUB_ENV
+            echo "POLICY_SCA=0" >> $GITHUB_ENV
+            echo "POLICY_DAST=0" >> $GITHUB_ENV
+            echo "Políticas definidas: SAST=0, SCA=0, DAST=0 (valores padrão)"
+          else
+            # Obtém os detalhes apenas da primeira aplicação encontrada (a mais recente)
+            APP_DETAILS=$(echo "$EXISTING_APP" | jq --arg NAME "$APP_NAME" --arg ID "$APP_ID" '.data[] | select(.name == $NAME and .id == ($ID | tonumber))' | head -n 1)
+            
+            # Verifica se APP_DETAILS é válido antes de continuar
+            if [ -z "$APP_DETAILS" ] || ! echo "$APP_DETAILS" | jq . > /dev/null 2>&1; then
+              echo "::warning::Detalhes da aplicação contêm JSON malformado. Usando valores padrão para políticas."
+              echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+              echo "POLICY_SAST=0" >> $GITHUB_ENV
+              echo "POLICY_SCA=0" >> $GITHUB_ENV
+              echo "POLICY_DAST=0" >> $GITHUB_ENV
+              echo "Políticas definidas: SAST=0, SCA=0, DAST=0 (valores padrão)"
+            else
+              echo "Detalhes da aplicação:"
+              echo "$APP_DETAILS" | jq .
+              echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+              
+              # Extrai os valores das políticas apenas da aplicação selecionada
+              POLICY_SAST=$(echo "$APP_DETAILS" | jq -r '.policies_id_sast // "0"')
+              POLICY_SCA=$(echo "$APP_DETAILS" | jq -r '.policies_id_sca // "0"')
+              POLICY_DAST=$(echo "$APP_DETAILS" | jq -r '.policies_id_dast // "0"')
+              
+              # Verifica e garante valores padrão para políticas nulas ou vazias
+              POLICY_SAST_SAFE=$([ -n "$POLICY_SAST" ] && [ "$POLICY_SAST" != "null" ] && echo "$POLICY_SAST" || echo "0")
+              POLICY_SCA_SAFE=$([ -n "$POLICY_SCA" ] && [ "$POLICY_SCA" != "null" ] && echo "$POLICY_SCA" || echo "0")
+              POLICY_DAST_SAFE=$([ -n "$POLICY_DAST" ] && [ "$POLICY_DAST" != "null" ] && echo "$POLICY_DAST" || echo "0")
+              
+              # Definir as variáveis de ambiente com os valores seguros
+              echo "POLICY_SAST=$POLICY_SAST_SAFE" >> $GITHUB_ENV
+              echo "POLICY_SCA=$POLICY_SCA_SAFE" >> $GITHUB_ENV
+              echo "POLICY_DAST=$POLICY_DAST_SAFE" >> $GITHUB_ENV
+              
+              # Log para debug
+              echo "Políticas definidas: SAST=$POLICY_SAST_SAFE, SCA=$POLICY_SCA_SAFE, DAST=$POLICY_DAST_SAFE"
+            fi
           fi
         else
-          ERROR_STATUS=$(echo "$RESPONSE" | jq -r '.status // empty')
-          ERROR_DETAIL=$(echo "$RESPONSE" | jq -r '.detail // empty')
+          echo "A aplicação não existe. Criando nova aplicação..."
+
+          # Verificar se a equipe existe antes de tentar criar a aplicação
+          echo "Verificando se a equipe $TEAM_ID existe..."
+          TEAMS_RESPONSE=$(curl -sS -X GET \
+            "${UPLOADER_URL}/get_teams?page=1&items_per_page=100" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
           
-          if [[ "$ERROR_STATUS" = "400" ]] || [[ "$ERROR_DETAIL" == *"já existe"* ]]; then
-            echo "A aplicação já existe. Buscando o APP_ID existente..."
-            # Buscar o APP_ID da aplicação existente
-            EXISTING_APP=$(curl -sS -X GET \
-              'https://uploader-mvp.xguardianplatform.io/get_apps_total' \
-              -H 'accept: application/json' \
-              -H "Authorization: Bearer ${API_TOKEN}" )
+          # Extrai IDs das equipes disponíveis para comparar
+          if echo "$TEAMS_RESPONSE" | jq -e '.data' > /dev/null 2>&1; then
+            # Extrair todos os IDs de equipe disponíveis
+            AVAILABLE_TEAM_IDS=$(echo "$TEAMS_RESPONSE" | jq -r '.data[].id')
             
-            APP_ID=$(echo "$EXISTING_APP" | jq -r --arg NAME "$APP_NAME" '.[] | select(.name == $NAME) | .id')
-
-            if [ -n "$APP_ID" ]; then
-              echo "APP_ID encontrado: $APP_ID para a aplicação: $APP_NAME"
-              echo "Detalhes da aplicação:"
-              echo "$EXISTING_APP" | jq --arg NAME "$APP_NAME" '.[] | select(.name == $NAME)'
-              echo "APP_ID=$APP_ID" >> $GITHUB_ENV
-
-              POLICY_SAST=$(echo "$EXISTING_APP" | jq -r --arg NAME "$APP_NAME" '.[] | select(.name == $NAME) | .policies_id_sast')
-              POLICY_SCA=$(echo "$EXISTING_APP" | jq -r --arg NAME "$APP_NAME" '.[] | select(.name == $NAME) | .policies_id_sca')
-              POLICY_DAST=$(echo "$EXISTING_APP" | jq -r --arg NAME "$APP_NAME" '.[] | select(.name == $NAME) | .policies_id_dast')
-
-              if [ -n "$POLICY_SAST" ]; then
-                echo "POLICY_SAST=$POLICY_SAST" >> $GITHUB_ENV
+            # Extrair IDs fornecidos pelo usuário (removendo colchetes e espaços)
+            USER_TEAM_IDS=$(echo "$TEAM_ID" | tr -d '[]" ' | tr ',' '\n')
+            
+            # Flag para verificar se todas as equipes existem
+            ALL_TEAMS_EXIST=true
+            INVALID_TEAMS=""
+            
+            # Verificar cada ID fornecido pelo usuário
+            for team_id in $USER_TEAM_IDS; do
+              if ! echo "$AVAILABLE_TEAM_IDS" | grep -q "^$team_id$"; then
+                ALL_TEAMS_EXIST=false
+                INVALID_TEAMS="$INVALID_TEAMS $team_id"
               fi
-
-              if [ -n "$POLICY_SCA" ]; then
-                echo "POLICY_SCA=$POLICY_SCA" >> $GITHUB_ENV
-              fi
-
-              if [ -n "$POLICY_DAST" ]; then
-                echo "POLICY_DAST=$POLICY_DAST" >> $GITHUB_ENV
-              fi
-            else
-              echo "::error::Não foi possível encontrar o APP_ID da aplicação existente"
+            done
+            
+            if [ "$ALL_TEAMS_EXIST" = false ]; then
+              echo "::error::Equipe(s)${INVALID_TEAMS} não encontrada(s) ou não pertence(m) à sua organização."
+              echo "::error::Por favor, verifique o ID da equipe fornecido em 'team_id' e tente novamente."
+              echo "::error::Equipes disponíveis para sua conta:"
+              echo "$TEAMS_RESPONSE" | jq -r '.data[] | "ID: \(.id) - Nome: \(.name)"'
+              echo "::endgroup::"
               exit 1
+            else
+              echo "✅ Equipe(s) verificada(s) com sucesso!"
             fi
           else
-            echo "::error::Erro inesperado na criação/verificação da aplicação"
-            echo "$RESPONSE"
+            echo "::warning::Não foi possível verificar as equipes disponíveis. Continuando mesmo assim..."
+          fi
+
+          # Determine microservices value
+          if [[ "${MICROSERVICES}" == "true" ]]; then
+            MICROSERVICES_VALUE="true"
+          else
+            MICROSERVICES_VALUE="false"
+          fi
+          
+          # Start building the JSON
+          JSON_CONTENT='{'
+          JSON_CONTENT+='"app_name": "'"${APP_NAME}"'",'
+          JSON_CONTENT+='"team_id": '"${TEAM_ID}"','
+          JSON_CONTENT+='"languages": '"${LANGUAGES}"','
+          JSON_CONTENT+='"description": "'"${DESCRIPTION}"'",'
+          JSON_CONTENT+='"microservices": '"${MICROSERVICES_VALUE}"
+          
+          # Add microservices_data only if microservices is true
+          if [[ "${MICROSERVICES}" == "true" ]]; then
+            JSON_CONTENT+=',"microservices_data": '"${MICROSERVICES_DATA}"
+          fi
+          
+          JSON_CONTENT+='}'
+          
+          echo "📝 Payload para criação da aplicação:"
+          echo "$JSON_CONTENT" | jq .
+          
+          RESPONSE=$(curl -sS -X POST "${CREATE_APP_URL}" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "${JSON_CONTENT}")
+
+          echo "📄 Resposta da API:"
+          echo "$RESPONSE" | jq . || echo "$RESPONSE"
+
+          # Verificar se a resposta contém a mensagem de sucesso
+          if echo "$RESPONSE" | grep -q '"sucess":"Aplicação\|"success":"Aplicação'; then
+            echo "✅ Aplicação criada com sucesso."
+            echo "APP_ID=N/A" >> $GITHUB_ENV
+          else
+            # Melhor tratamento de erro com mensagem específica
+            if echo "$RESPONSE" | grep -q "Equipe"; then
+              ERROR_MSG=$(echo "$RESPONSE" | jq -r '.Equipe // "Erro desconhecido com a equipe"')
+              echo "::error::Erro ao criar aplicação: $ERROR_MSG"
+              echo "::error::Verifique se o ID da equipe fornecido em 'team_id' está correto."
+              echo "::error::O valor atual é: $TEAM_ID"
+            else
+              echo "::error::Erro inesperado na criação da aplicação:"
+              echo "$RESPONSE" | jq . || echo "$RESPONSE"
+            fi
+            echo "::endgroup::"
             exit 1
           fi
         fi
-
-    - name: Buscar políticas após criação da aplicação
-      shell: bash
-      env:
-        API_TOKEN: ${{ env.API_TOKEN }}
-        APP_ID: ${{ env.APP_ID }}
-      run: |
-        fetch_policies() {
-          local scan_type=$1
-          local response=$(curl -s -X GET "https://auth.xguardianplatform.io/get_policies_${scan_type}" \
-            -H 'accept: application/json' \
-            -H "Authorization: Bearer ${API_TOKEN}")
-
-          echo "$response" | jq '.' || {
-            echo "::error::Resposta da API não é um JSON válido: $response"
-            exit 1
-          }
-
-          local policies=$(echo "$response" | jq -r '
-            .[] | select(.name and .description) | 
-            select((.name | ascii_downcase) != "default" and (.description | ascii_downcase) != "default") | 
-            @base64')
-
-          if [ -n "$policies" ]; then
-            echo "Políticas encontradas para ${scan_type}:"
-            echo "$policies" | while read -r policy; do
-              echo "$policy" | base64 --decode | jq '.'
-            done
-          else
-            echo "Nenhuma política encontrada para ${scan_type}."
-          fi
-        }
-
-        fetch_policies "sast"
-        fetch_policies "sca"
-        fetch_policies "dast"
+        echo "::endgroup::"
 
     - name: Verificar políticas definidas
       shell: bash
       env:
+        AUTH_URL: ${{ env.AUTH_URL }}
         API_TOKEN: ${{ env.API_TOKEN }}
         POLICY_SAST: "${{ env.POLICY_SAST }}"
         POLICY_SCA: "${{ env.POLICY_SCA }}"
         POLICY_DAST: "${{ env.POLICY_DAST }}"
       run: |
+        echo "::group::Verificação de políticas aplicadas"
+        # Verificar se todas as políticas são 0 ou não definidas
+        if [[ "${POLICY_SAST}" == "0" && "${POLICY_SCA}" == "0" && "${POLICY_DAST}" == "0" ]]; then
+          echo "Nenhuma política definida (todos os valores são 0). Pulando verificação de políticas."
+          echo "::endgroup::"
+          exit 0
+        fi
+
         check_policies() {
           local scan_type=$1
           local app_policy_id=$2
 
-          local response=$(curl -s -X GET "https://auth.xguardianplatform.io/get_policies_${scan_type}" \
+          echo "::group::Verificação de políticas para ${scan_type^^}"
+          
+          # Pula a verificação se a política for 0 ou não definida
+          if [[ -z "$app_policy_id" || "$app_policy_id" == "0" || "$app_policy_id" == "null" ]]; then
+            echo "Política para ${scan_type} não definida ou com valor 0. Pulando verificação."
+            echo "::endgroup::"
+            return 0
+          fi
+
+          echo "Verificando política para ${scan_type} com ID ${app_policy_id}..."
+          
+          local response=$(curl -s -X GET "${AUTH_URL}/get_policies_${scan_type}" \
             -H 'accept: application/json' \
             -H "Authorization: Bearer ${API_TOKEN}")
 
-          echo "$response" | jq '.' || {
+          # Verifica se a resposta é um JSON válido
+          if ! echo "$response" | jq '.' > /dev/null 2>&1; then
             echo "::error::Resposta da API não é um JSON válido: $response"
-            exit 1
-          }
-
-          local policy=$(echo "$response" | jq --arg id "$app_policy_id" '.[] | select(.id == ($id | tonumber))')
-          echo "$policy" | jq '.'
-
-          if [ -z "$policy" ]; then
-            echo "::error::Política atribuída para ${scan_type} não encontrada: $app_policy_id"
-            exit 1
+            echo "::endgroup::"
+            return 1
           fi
 
+          # Exibe todas as políticas disponíveis (para debug)
+          echo "Políticas disponíveis para ${scan_type}:"
+          echo "$response" | jq '.'
+
+          # Busca a política específica
+          local policy=$(echo "$response" | jq --arg id "$app_policy_id" '.[] | select(.id == ($id | tonumber))')
+          
+          # Verifica se a política foi encontrada
+          if [ -z "$policy" ] || [ "$policy" == "null" ]; then
+            echo "::warning::Política atribuída para ${scan_type} com ID ${app_policy_id} não encontrada nas políticas disponíveis."
+            echo "::warning::Usando política padrão com valores 0 para todos os níveis."
+            # Define valores padrão caso a política não seja encontrada
+            echo "${scan_type^^}_CRITICAL=0" >> $GITHUB_ENV
+            echo "${scan_type^^}_HIGH=0" >> $GITHUB_ENV
+            echo "${scan_type^^}_MEDIUM=0" >> $GITHUB_ENV
+            echo "${scan_type^^}_LOW=0" >> $GITHUB_ENV
+            echo "${scan_type^^}_RATING=0" >> $GITHUB_ENV
+            echo "${scan_type^^}_PIPEACTION=noAction" >> $GITHUB_ENV
+            echo "::endgroup::"
+            return 0
+          fi
+
+          # Exibe os detalhes da política
+          echo "Política encontrada para ${scan_type}:"
+          echo "$policy" | jq '.'
+
+          # Extrai os valores da política
           export CRITICAL=$(echo "$policy" | jq -r '.critical')
           export HIGH=$(echo "$policy" | jq -r '.high')
           export MEDIUM=$(echo "$policy" | jq -r '.medium')
@@ -453,31 +718,114 @@ runs:
           export RATING=$(echo "$policy" | jq -r '.rating')
           export PIPEACTION=$(echo "$policy" | jq -r '.pipeaction')
 
+          # Verifica se os valores foram extraídos corretamente
           if [ -z "$CRITICAL" ] || [ -z "$HIGH" ] || [ -z "$MEDIUM" ] || [ -z "$LOW" ] || [ -z "$RATING" ] || [ -z "$PIPEACTION" ]; then
-            echo "::error::Falha ao atribuir variáveis de ambiente para ${scan_type}"
-            exit 1
+            echo "::warning::Falha ao extrair valores da política para ${scan_type}. Usando valores padrão."
+            CRITICAL=0
+            HIGH=0
+            MEDIUM=0
+            LOW=0
+            RATING=0
+            PIPEACTION="noAction"
           fi
 
-          echo "Política atribuída para ${scan_type}:"
-          echo "ID: $app_policy_id"
-          echo "CRITICAL: $CRITICAL"
-          echo "HIGH: $HIGH"
-          echo "MEDIUM: $MEDIUM"
-          echo "LOW: $LOW"
-          echo "RATING: $RATING"
-          echo "PIPEACTION: $PIPEACTION"
-
+          # Define as variáveis de ambiente
           echo "${scan_type^^}_CRITICAL=$CRITICAL" >> $GITHUB_ENV
           echo "${scan_type^^}_HIGH=$HIGH" >> $GITHUB_ENV
           echo "${scan_type^^}_MEDIUM=$MEDIUM" >> $GITHUB_ENV
           echo "${scan_type^^}_LOW=$LOW" >> $GITHUB_ENV
           echo "${scan_type^^}_RATING=$RATING" >> $GITHUB_ENV
           echo "${scan_type^^}_PIPEACTION=$PIPEACTION" >> $GITHUB_ENV
+
+          echo "Política para ${scan_type^^} configurada com sucesso:"
+          echo "┌─────────────────────────────────────────────┐"
+          echo "│ Limites de vulnerabilidades para ${scan_type^^} │"
+          echo "├─────────────────────────────────────────────┤"
+          echo "│ CRITICAL: $CRITICAL                          "
+          echo "│ HIGH:     $HIGH                              "
+          echo "│ MEDIUM:   $MEDIUM                            "
+          echo "│ LOW:      $LOW                               "
+          echo "│ RATING:   $RATING                            "
+          echo "│ AÇÃO:     $PIPEACTION                        "
+          echo "└─────────────────────────────────────────────┘"
+          echo "::endgroup::"
         }
 
-        check_policies "sast" "${POLICY_SAST}"
-        check_policies "sca" "${POLICY_SCA}"
-        check_policies "dast" "${POLICY_DAST}"
+        # Realiza as verificações individuais para cada tipo de scan
+        check_policies "sast" "${POLICY_SAST}" || echo "::warning::Falha ao verificar política SAST."
+        check_policies "sca" "${POLICY_SCA}" || echo "::warning::Falha ao verificar política SCA."
+        check_policies "dast" "${POLICY_DAST}" || echo "::warning::Falha ao verificar política DAST."
+
+        echo "Verificação de políticas concluída."
+        echo "::endgroup::"
+
+    - name: Buscar políticas após criação da aplicação
+      shell: bash
+      env:
+        AUTH_URL: ${{ env.AUTH_URL }}
+        API_TOKEN: ${{ env.API_TOKEN }}
+        APP_ID: ${{ env.APP_ID }}
+      run: |
+        echo "::group::📋 POLÍTICAS DISPONÍVEIS NA PLATAFORMA"
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ POLÍTICAS DE SEGURANÇA DISPONÍVEIS                      │"
+        echo "└─────────────────────────────────────────────────────────┘"
+        echo "Buscando políticas disponíveis para cada tipo de scan..."
+
+        fetch_policies() {
+          local scan_type=$1
+          echo "::group::📜 Políticas disponíveis para ${scan_type^^}"
+          
+          local response=$(curl -s -X GET "${AUTH_URL}/get_policies_${scan_type}" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
+
+          if ! echo "$response" | jq '.' > /dev/null 2>&1; then
+            echo "┌─────────────────────────────────────────────────────────┐"
+            echo "│ ❌ ERRO: RESPOSTA DA API INVÁLIDA                       │"
+            echo "└─────────────────────────────────────────────────────────┘"
+            echo "::error::Resposta da API não é um JSON válido: $response"
+            echo "::endgroup::"
+            return 1
+          fi
+
+          # Mostrar o número total de políticas encontradas
+          local total_policies=$(echo "$response" | jq '. | length')
+          echo "Total de políticas para ${scan_type^^}: $total_policies"
+          
+          # Filtra políticas que não sejam default
+          local custom_policies=$(echo "$response" | jq -r '
+            [.[] | select(.name and .description) | 
+            select((.name | ascii_downcase) != "default" and (.description | ascii_downcase) != "default")]')
+          
+          local custom_count=$(echo "$custom_policies" | jq '. | length')
+          echo "Políticas personalizadas para ${scan_type^^}: $custom_count"
+
+          if [ "$custom_count" -gt 0 ]; then
+            # Tabela formatada com caracteres de borda para melhor leitura
+            echo "┌───────┬────────────────────┬────────────────────┐"
+            echo "│   ID  │       NOME         │        AÇÃO        │"
+            echo "├───────┼────────────────────┼────────────────────┤"
+            
+            echo "$custom_policies" | jq -r '.[] | "│ \(.id) │ \(.name) │ \(.pipeaction) │"'
+            
+            echo "└───────┴────────────────────┴────────────────────┘"
+            
+            # Para informações mais detalhadas, mostrar cada política de forma organizada
+            echo "📊 Detalhes das políticas (expandir para ver):"
+            echo "$custom_policies" | jq -r '.[] | "ID: \(.id) - \(.name)\n  • Crítico: \(.critical)\n  • Alto: \(.high)\n  • Médio: \(.medium)\n  • Baixo: \(.low)\n  • Ação: \(.pipeaction)\n"'
+          else
+            echo "ℹ️ Nenhuma política personalizada encontrada para ${scan_type^^}."
+          fi
+          echo "::endgroup::"
+        }
+
+        fetch_policies "sast" || echo "::warning::Falha ao buscar políticas SAST."
+        fetch_policies "sca" || echo "::warning::Falha ao buscar políticas SCA."
+        fetch_policies "dast" || echo "::warning::Falha ao buscar políticas DAST."
+
+        echo "✅ Busca de políticas concluída."
+        echo "::endgroup::"
 
     - name: Obter o short_sha
       id: vars
@@ -487,10 +835,40 @@ runs:
       run: |
         echo "short_sha=${GITHUB_SHA:0:6}" >> $GITHUB_OUTPUT
 
+    - name: Verificar pré-requisitos antes da análise
+      if: ${{ inputs.sast == 'true' || inputs.sca == 'true' }}
+      shell: bash
+      env:
+        APP_ID: ${{ env.APP_ID }}
+        API_TOKEN: ${{ env.API_TOKEN }}
+      run: |
+        echo "::group::🔎 VERIFICAÇÃO DE PRÉ-REQUISITOS"
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ VERIFICANDO PRÉ-REQUISITOS PARA SCAN                    │"
+        echo "└─────────────────────────────────────────────────────────┘"
+
+        # Verificar se temos um token válido
+        if [ -z "$API_TOKEN" ]; then
+          echo "::error::Token de API não encontrado. Verifique se a autenticação foi realizada corretamente."
+          echo "::endgroup::"
+          exit 1
+        fi
+
+        # Verificar se temos um ID de aplicação
+        if [ -z "$APP_ID" ] || [ "$APP_ID" = "N/A" ]; then
+          echo "::warning::ID da aplicação indefinido ou marcado como N/A. A etapa seguinte tentará buscar o ID correto."
+        else
+          echo "✅ ID da aplicação configurado: $APP_ID"
+        fi
+
+        echo "✅ Todos os pré-requisitos verificados!"
+        echo "::endgroup::"
+
     - name: Criar o Scan SAST e/ou SCA (Obter URL de upload)
       if: ${{ inputs.sast == 'true' || inputs.sca == 'true' }}
       shell: bash
       env:
+        UPLOADER_URL: ${{ env.UPLOADER_URL }}
         APP_ID: ${{ env.APP_ID }}
         SAST: ${{ inputs.sast }}
         SCA: ${{ inputs.sca }}
@@ -498,59 +876,95 @@ runs:
         EXCLUDE: ${{ inputs.exclude }}
         PDF: ${{ inputs.pdf }}
         SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
+        API_TOKEN: ${{ env.API_TOKEN }}
       run: |
-        # Limpa o SCAN_VERSION removendo caracteres especiais e espaços
-        CLEAN_SCAN_VERSION=$(echo "${SCAN_VERSION}" | tr -cd '[:alnum:]-_')
-        echo "Debug: SCAN_VERSION original: ${SCAN_VERSION}"
-        echo "Debug: SCAN_VERSION limpo: ${CLEAN_SCAN_VERSION}"
+        echo "::group::Preparando scan SAST/SCA"
+        echo "📋 Configurando scan com as seguintes opções:"
+        echo "  • APP_ID: ${APP_ID}"
+        echo "  • SCAN_VERSION: ${SCAN_VERSION}"
+        echo "  • SAST: ${SAST}"
+        echo "  • SCA: ${SCA}"
+        echo "  • TRANSLATE: ${TRANSLATE}"
+        echo "  • PDF: ${PDF}"
 
-        UPLOAD_URL="https://uploader-mvp.xguardianplatform.io/upload-url"
+        # Verificar se o APP_ID é N/A e buscar o ID correto
+        if [ "${APP_ID}" = "N/A" ]; then
+          echo "🔍 APP_ID é N/A, buscando o ID correto..."
+          RESPONSE=$(curl -sS -X GET "${UPLOADER_URL}/get_apps_new?page=1&items_per_page=10" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
 
-        # Limpa o APP_NAME também para garantir consistência
-        CLEAN_APP_NAME=$(echo "${APP_NAME}" | tr -cd '[:alnum:]-_')
+          echo "::group::Resposta detalhada da API (debug)"
+          echo "$RESPONSE"
+          echo "::endgroup::"
 
-        # XGB-1411 | Desativando o translate temporariamente
-        # "translate": "${TRANSLATE}",
+          APP_ID=$(echo "$RESPONSE" | jq -r --arg NAME "${{ inputs.app_name }}" '.data[] | select(.name == $NAME) | .id' | head -n 1)
+
+          if [ -z "$APP_ID" ]; then
+            echo "❌ Não foi possível encontrar o APP_ID para a aplicação ${inputs.app_name}"
+            echo "::error::Não foi possível encontrar o APP_ID para a aplicação ${{ inputs.app_name }}"
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          echo "✅ APP_ID encontrado: $APP_ID"
+          echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+        fi
+
+        UPLOAD_URL="${UPLOADER_URL}/upload-url"
+
         DATA=$(cat << EOF
         {
           "app_id": ${APP_ID},
-          "scan_version": "${CLEAN_SCAN_VERSION}",
+          "scan_version": "${SCAN_VERSION}",
           "file_type": "application/zip",
           "sca": "${SCA}",
           "sast": "${SAST}",
-          "translate": "false", 
+          "translate": "${TRANSLATE}", 
           "exclude": "${EXCLUDE}",
           "pdf": "${PDF}"
         }
         EOF
         )
 
-        # Debug do payload formatado
-        echo "Debug: DATA (formatted):"
-        echo "${DATA}" | jq '.'
+        echo "::group::Payload da requisição (para debug)"
+        echo "$DATA" | jq '.' || echo "$DATA"
+        echo "::endgroup::"
 
-        # Debug do payload original
-        echo "Debug: DATA (raw): ${DATA}"
+        echo "🚀 Enviando solicitação para obter URL de upload..."
 
-        GET_UPLOAD_URL=$(curl -sS -X POST "${UPLOAD_URL}" \
+        RESPONSE=$(curl -sS -X POST "${UPLOAD_URL}" \
             -H 'accept: application/json' \
             -H 'Content-Type: application/json' \
             -H "Authorization: Bearer ${API_TOKEN}" \
-            -d "${DATA}" | jq -r '.url')
+            -d "${DATA}")
+
+        echo "::group::Resposta completa da API (para debug)"
+        echo "$RESPONSE" | jq '.' || echo "$RESPONSE"
+        echo "::endgroup::"
+
+        GET_UPLOAD_URL=$(echo "${RESPONSE}" | jq -r '.url')
 
         if [ -z "$GET_UPLOAD_URL" ] || [ "$GET_UPLOAD_URL" = "null" ]; then
-          echo "Erro: Não foi possível obter a URL de upload"
+          echo "❌ Erro: Não foi possível obter a URL de upload"
+          echo "::error::Não foi possível obter a URL de upload. Verifique a resposta da API."
+          echo "::endgroup::"
           exit 1
         fi
 
-        echo "URL de Upload: ${GET_UPLOAD_URL}"
+        echo "✅ URL de upload obtida com sucesso"
+        # Mostrar apenas parte inicial da URL para evitar poluir o log
+        URL_PREVIEW=$(echo "${GET_UPLOAD_URL}" | cut -c 1-90)
+        echo "🔗 URL de Upload: ${URL_PREVIEW}..."
         echo "GET_UPLOAD_URL=${GET_UPLOAD_URL}" >> $GITHUB_ENV
+        echo "::endgroup::"
 
     - name: Realizar o scan DAST
       if: ${{ inputs.dast == 'true' }}
       shell: bash
       env:
-        API_TOKEN: ${{ inputs.api_token }}
+        UPLOADER_URL: ${{ env.UPLOADER_URL }}
+        API_TOKEN: ${{ env.API_TOKEN }}
         APP_ID: ${{ env.APP_ID }}
         SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
         SITE_URL: ${{ inputs.site_url }}
@@ -562,7 +976,57 @@ runs:
         TRANSLATE: ${{ inputs.translate }}
         PDF: ${{ inputs.pdf }}
       run: |
-        UPLOAD_DAST_URL="https://uploader-mvp.xguardianplatform.io/upload-dast"
+        echo "::group::Configuração e execução do scan DAST"
+        echo "🔍 Preparando scan DAST para ${SITE_URL}..."
+        UPLOAD_DAST_URL="${UPLOADER_URL}/upload-dast"
+
+        # Verificar se o APP_ID é N/A e buscar o ID correto se necessário
+        if [ "${APP_ID}" = "N/A" ]; then
+          echo "⚠️ APP_ID é N/A, buscando o ID correto..."
+          
+          echo "::group::Requisição para obter APP_ID"
+          RESPONSE=$(curl -sS -X GET "${UPLOADER_URL}/get_apps_new?page=1&items_per_page=10" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
+          
+          # Debug controlado - só mostrar se necessário
+          if [ $? -ne 0 ]; then
+            echo "❌ Falha na requisição HTTP para obter APP_ID"
+            echo "Resposta completa:"
+            echo "$RESPONSE"
+            echo "::endgroup::"
+            echo "::error::Falha ao buscar dados da aplicação. Verifique a conexão e o servidor."
+            echo "::endgroup::"
+            exit 1
+          fi
+          echo "::endgroup::"
+
+          APP_ID=$(echo "$RESPONSE" | jq -r --arg NAME "${{ inputs.app_name }}" '.data[] | select(.name == $NAME) | .id' | head -n 1)
+
+          if [ -z "$APP_ID" ]; then
+            echo "::error::❌ Não foi possível encontrar o APP_ID para a aplicação ${inputs.app_name}"
+            echo "::group::Resposta da API (debug)"
+            echo "$RESPONSE" | jq -r '.' || echo "$RESPONSE"
+            echo "::endgroup::"
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          echo "✅ APP_ID encontrado: $APP_ID"
+          echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+        fi
+
+        # Construindo o payload para o scan DAST
+        echo "📝 Configurando parâmetros do scan DAST:"
+        echo "  • APP_ID: ${APP_ID}"
+        echo "  • SCAN_VERSION: ${SCAN_VERSION}"
+        echo "  • SITE_URL: ${SITE_URL}"
+        [ -n "${AUTH_URL}" ] && echo "  • URL de autenticação: ${AUTH_URL}"
+        [ -n "${LOGOUT_URL}" ] && echo "  • URL de logout: ${LOGOUT_URL}"
+        echo "  • Autenticação necessária: ${AUTH_EXIST}"
+        [ "${AUTH_EXIST}" = "true" ] && echo "  • Usuário: ${USER_LOGIN}"
+        echo "  • Tradução ativada: ${TRANSLATE}"
+        echo "  • PDF ativado: ${PDF}"
 
         DATA=$(cat << EOF
         {
@@ -580,36 +1044,59 @@ runs:
         EOF
         )
 
+        echo "::group::Payload da requisição DAST (para debug)"
+        # Mascarando a senha no log
+        echo "$DATA" | jq '. + {"passwordlogin": "********"}' || echo "$DATA" | sed 's/"passwordlogin":"[^"]*"/"passwordlogin":"********"/g'
+        echo "::endgroup::"
+
+        echo "🚀 Iniciando scan DAST..."
+        echo "::group::Resposta da API (completa)"
         RESPONSE=$(curl -sS -X POST "${UPLOAD_DAST_URL}" \
           -H 'accept: application/json' \
           -H "Authorization: Bearer ${API_TOKEN}" \
           -H 'Content-Type: application/json' \
           -d "${DATA}")
 
+        # Exibir a resposta apenas no grupo
+        echo "$RESPONSE" | jq '.' || echo "$RESPONSE"
+        echo "::endgroup::"
+
+        # Verificar se o token expirou e renovar se necessário
         if echo "$RESPONSE" | grep -q '"detail": "Token is invalid, Signature has expired."'; then
+          echo "⚠️ Token expirado, renovando..."
           renew_token
+          
+          echo "🔄 Reenviar solicitação com novo token..."
+          echo "::group::Nova resposta da API"
           RESPONSE=$(curl -sS -X POST "${UPLOAD_DAST_URL}" \
             -H 'accept: application/json' \
             -H "Authorization: Bearer ${API_TOKEN}" \
             -H 'Content-Type: application/json' \
             -d "${DATA}")
+          echo "$RESPONSE" | jq '.' || echo "$RESPONSE"
+          echo "::endgroup::"
         fi
 
-        SCAN_NAME=$(echo "$RESPONSE" | jq -r '.scan_name')
-        APP_NAME=$(echo "$RESPONSE" | jq -r '.app_name')
-        APP_ID=$(echo "$RESPONSE" | jq -r '.app_id')
-
-        if [ -n "$SCAN_NAME" ] && [ -n "$APP_NAME" ] && [ -n "$APP_ID" ]; then
-          echo "Scan Name: $SCAN_NAME"
-          echo "App Name: $APP_NAME"
-          echo "App ID: $APP_ID"
+        # Verificar resposta e processar adequadamente
+        if echo "$RESPONSE" | grep -q '"scan_id"'; then
+          SCAN_ID=$(echo "$RESPONSE" | jq -r '.scan_id')
+          echo "✅ Scan DAST iniciado com sucesso!"
+          echo "📊 ID do scan DAST: ${SCAN_ID}"
+          echo "SCAN_ID=${SCAN_ID}" >> $GITHUB_ENV
+          echo "::notice title=XGuardian Scan DAST::Scan DAST iniciado com sucesso para ${SITE_URL}"
         else
-          echo "::error::Falha ao obter informações do scan."
-          exit 1
+          echo "⚠️ Problema na resposta do servidor:"
+          if echo "$RESPONSE" | grep -q 'error\|fail\|invalid'; then
+            ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error // .message // .detail // "Erro desconhecido"')
+            echo "❌ Falha detectada: ${ERROR_MSG}"
+            echo "::error title=XGuardian Scan DAST::Falha ao iniciar scan DAST: ${ERROR_MSG}"
+          else
+            echo "⚠️ Resposta sem formato esperado:"
+            echo "$RESPONSE" | jq -r '.'
+            echo "::warning title=XGuardian Scan DAST::Resposta não contém scan_id. Verifique a resposta da API."
+          fi
         fi
-
-        echo "Resposta do upload DAST:"
-        echo "$RESPONSE"
+        echo "::endgroup::"
 
     - name: Zipar os arquivos
       if: ${{ inputs.sast == 'true' || inputs.sca == 'true' }}
@@ -618,47 +1105,56 @@ runs:
         APP_NAME: ${{ inputs.app_name }}
         SCAN_DIR: ${{ inputs.scan_directory }}
       run: |
+        echo "::group::📦 CRIAÇÃO DO ARQUIVO ZIP"
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ PREPARANDO ARQUIVOS PARA ANÁLISE                        │"
+        echo "└─────────────────────────────────────────────────────────┘"
+
         # Substituir caracteres especiais no nome do arquivo zip
         SAFE_APP_NAME=$(echo "${APP_NAME}" | tr '/' '_')
         echo "SAFE_APP_NAME=${SAFE_APP_NAME}" >> $GITHUB_ENV
 
-        echo "Debug: SCAN_DIR configurado como: ${SCAN_DIR}"
-        echo "Debug: Estrutura do diretório atual:"
-        pwd
-        tree -L 2 || ls -R  # tenta usar tree, se não disponível usa ls -R
+        echo "Diretório configurado para scan: ${SCAN_DIR}"
 
-        # Verifica se o diretório existe
+        # Verifica se o diretório existe sem listar todo o conteúdo
         if [ ! -d "$SCAN_DIR" ]; then
-          echo "Erro: Diretório '$SCAN_DIR' não encontrado no workspace"
-          echo "Por favor, verifique se o diretório existe ou use '.' para o diretório raiz"
+          echo "┌─────────────────────────────────────────────────────────┐"
+          echo "│ ❌ ERRO: DIRETÓRIO NÃO ENCONTRADO                       │"
+          echo "└─────────────────────────────────────────────────────────┘"
+          echo "::error::Diretório '$SCAN_DIR' não encontrado no workspace"
+          echo "::error::Verifique se o diretório existe ou use '.' para o diretório raiz"
+          echo "::endgroup::"
           exit 1
         fi
 
-        echo "Debug: Diretório atual antes do zip: $(pwd)"
-        echo "Debug: Conteúdo do diretório $SCAN_DIR:"
-        ls -la "$SCAN_DIR"
+        echo "Iniciando criação do arquivo ZIP..."
 
-        echo "Debug: Criando zip em ${SAFE_APP_NAME}.zip"
-
-        # Criar o zip no diretório atual
+        # Criar o zip silenciosamente (-q) para reduzir a saída
         if [ "$SCAN_DIR" = "." ]; then
           # Se for diretório raiz, exclui alguns diretórios comuns
-          zip -r "${SAFE_APP_NAME}.zip" . -x "*.git/*" "*/node_modules/*" "*.env" "*.zip"
+          zip -rq "${SAFE_APP_NAME}.zip" . -x "*.git/*" "*/node_modules/*" "*.env" "*.zip"
         else
           # Se for um diretório específico
-          zip -r "${SAFE_APP_NAME}.zip" "$SCAN_DIR" -x "*.git/*" "*/node_modules/*" "*.env" "*.zip"
+          zip -rq "${SAFE_APP_NAME}.zip" "$SCAN_DIR" -x "*.git/*" "*/node_modules/*" "*.env" "*.zip"
         fi
 
         # Verificar se o arquivo zip foi criado
         if [ ! -f "${SAFE_APP_NAME}.zip" ]; then
-          echo "Erro: Arquivo zip não foi criado com sucesso"
-          ls -la
+          echo "┌─────────────────────────────────────────────────────────┐"
+          echo "│ ❌ ERRO: FALHA NA CRIAÇÃO DO ARQUIVO ZIP                │"
+          echo "└─────────────────────────────────────────────────────────┘"
+          echo "::error::Arquivo zip não foi criado com sucesso"
+          echo "::endgroup::"
           exit 1
         fi
 
-        echo "Debug: Arquivo zip criado em: $(pwd)/${SAFE_APP_NAME}.zip"
-        echo "Debug: Tamanho do arquivo zip:"
-        du -h "${SAFE_APP_NAME}.zip"
+        # Mostrar apenas o tamanho do arquivo zip
+        ZIP_SIZE=$(du -h "${SAFE_APP_NAME}.zip" | cut -f1)
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ ✅ ARQUIVO ZIP CRIADO COM SUCESSO                       │"
+        echo "│ 📦 ${SAFE_APP_NAME}.zip (${ZIP_SIZE})                   │"
+        echo "└─────────────────────────────────────────────────────────┘"
+        echo "::endgroup::"
 
     - name: Upload da aplicação para o scan (SAST e/ou SCA)
       if: ${{ inputs.sast == 'true' || inputs.sca == 'true' }}
@@ -670,38 +1166,69 @@ runs:
         SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
         GET_UPLOAD_URL: ${{ env.GET_UPLOAD_URL }}
       run: |
-        echo "Debug: Iniciando upload com SCAN_VERSION: ${SCAN_VERSION}"
+        echo "::group::📤 UPLOAD DE ARQUIVOS PARA ANÁLISE"
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ ENVIANDO ARQUIVOS PARA SCANNING                         │"
+        echo "└─────────────────────────────────────────────────────────┘"
+
+        echo "🔖 Iniciando upload com SCAN_VERSION: ${SCAN_VERSION}"
 
         # Verifica se o arquivo zip existe
         filePath="./${SAFE_APP_NAME}.zip"
 
-        echo "Debug: Diretório atual: $(pwd)"
-        echo "Debug: Listando arquivos:"
-        ls -la
-
-        echo "Debug: Procurando arquivo em: ${filePath}"
         if [ ! -f "${filePath}" ]; then
-          echo "Erro: Arquivo ${filePath} não encontrado"
+          echo "┌─────────────────────────────────────────────────────────┐"
+          echo "│ ❌ ERRO: ARQUIVO ZIP NÃO ENCONTRADO                     │"
+          echo "└─────────────────────────────────────────────────────────┘"
+          echo "::error::Arquivo ${filePath} não encontrado"
+          echo "::endgroup::"
           exit 1
         fi
 
-        echo "Debug: Tamanho do arquivo:"
-        du -h "${filePath}"
+        # Obter o tamanho do arquivo para exibir no progresso
+        fileSize=$(du -h "${filePath}" | cut -f1)
+        echo "📊 Tamanho do arquivo: ${fileSize}"
 
         # A URL já deve vir pronta para uso do endpoint anterior
-        echo "Debug: Upload URL: ${GET_UPLOAD_URL}"
+        echo "🔗 URL de Upload: ${GET_UPLOAD_URL:0:60}..."
 
-        # Upload com progresso visível e verificação de status
-        echo "Iniciando upload..."
-        if curl --progress-bar --location --request PUT "${GET_UPLOAD_URL}" \
+        # Função para exibir barra de progresso mais visual
+        show_progress() {
+          local width=50
+          local percent=$1
+          local completed=$((width * percent / 100))
+          local remaining=$((width - completed))
+          local bar=$(printf "%${completed}s" | tr ' ' '█')
+          local space=$(printf "%${remaining}s")
+          printf "\r📤 Progresso: [%s%s] %d%%" "$bar" "$space" "$percent"
+        }
+
+        # Upload com barra de progresso visível
+        echo "🚀 Iniciando upload... (isso pode levar alguns minutos dependendo do tamanho do arquivo)"
+
+        result=$(curl -# --fail --location --request PUT "${GET_UPLOAD_URL}" \
           --header 'Content-Type: application/zip' \
-          --data-binary "@${filePath}"; then
-          echo "Upload realizado com sucesso!"
+          --data-binary "@${filePath}" \
+          2>&1 | tee /dev/stderr | grep -o '[0-9]*\.[0-9]%' | tail -1)
+
+        exit_code=$?
+
+        # Garantir que a barra de progresso termina em 100%
+        if [ $exit_code -eq 0 ]; then
+          show_progress 100
+          echo -e "\n┌─────────────────────────────────────────────────────────┐"
+          echo "│ ✅ UPLOAD CONCLUÍDO COM SUCESSO                          │"
+          echo "└─────────────────────────────────────────────────────────┘"
           echo "::notice title=XGuardian Scan::Upload concluído! Aguarde alguns segundos para obter o ID do scan..."
         else
+          echo -e "\n┌─────────────────────────────────────────────────────────┐"
+          echo "│ ❌ FALHA NO UPLOAD DO ARQUIVO                            │"
+          echo "└─────────────────────────────────────────────────────────┘"
           echo "::error title=XGuardian Scan::Falha no upload do arquivo."
+          echo "::endgroup::"
           exit 1
         fi
+        echo "::endgroup::"
 
     - name: Aguardar 30 segundos antes de buscar o ID do scan
       shell: bash
@@ -717,21 +1244,70 @@ runs:
       shell: bash
       if: ${{ inputs.get_scan_id == 'true' }}
       env:
+        BASE_URL: ${{ env.BASE_URL }}
+        REPORTER_URL: ${{ env.REPORTER_URL }}
         APP_ID: ${{ env.APP_ID }}
-        API_TOKEN: ${{ inputs.api_token }}
+        API_TOKEN: ${{ env.API_TOKEN }}
         SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
         APP_NAME: ${{ inputs.app_name }}
+        DEBUG_LEVEL: ${{ inputs.debug_level || 'normal' }}
       run: |
-        echo "Debug: Buscando scan com versão: ${SCAN_VERSION}"
-        echo "Debug: APP_ID: ${APP_ID}"
+        echo "::group::🔍 BUSCANDO ID DO SCAN"
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ BUSCANDO ID DO SCAN                                     │"
+        echo "└─────────────────────────────────────────────────────────┘"
+
+        # Função para log condicional baseado no nível de debug
+        debug_log() {
+          local level="$1"
+          local message="$2"
+          
+          case "$DEBUG_LEVEL" in
+            verbose)
+              # No modo verbose, mostra tudo
+              echo "$message"
+              ;;
+            normal)
+              # No modo normal, mostra apenas níveis info e acima
+              if [[ "$level" != "trace" ]]; then
+                echo "$message"
+              fi
+              ;;
+            minimal)
+              # No modo minimal, mostra apenas warnings e erros
+              if [[ "$level" == "warn" || "$level" == "error" ]]; then
+                echo "$message"
+              fi
+              ;;
+          esac
+        }
+
+        echo "🔍 Iniciando busca pelo ID do scan com versão: ${SCAN_VERSION}"
+        debug_log "info" "📋 Aplicação: ${APP_NAME} (ID: ${APP_ID})"
+
+        # Verificar se já temos o scan_id definido em uma execução anterior
+        if [ -f "/tmp/xguardian_scan_complete" ] && [ -s "/tmp/xguardian_scan_complete" ]; then
+          echo "🔄 Arquivo de estado do scan encontrado. Verificando dados..."
+          IFS=':' read -r stored_app_id stored_scan_id < /tmp/xguardian_scan_complete
+          
+          if [ -n "$stored_app_id" ] && [ -n "$stored_scan_id" ]; then
+            echo "✅ Usando ID de scan previamente encontrado: $stored_scan_id"
+            echo "APP_ID=${stored_app_id}" >> $GITHUB_ENV
+            echo "SCAN_ID=${stored_scan_id}" >> $GITHUB_ENV
+            echo "SCAN_URL=${BASE_URL}/aplicacoes/${stored_app_id}/scans" >> $GITHUB_ENV
+            echo "::endgroup::"
+            exit 0
+          fi
+        fi
 
         # URL da API (apenas primeira página)
-        API_URL="https://reporter.xguardianplatform.io/get_scan_pagination/${APP_ID}?page=1&items_per_page=10"
-        echo "Debug: URL da API: ${API_URL}"
+        API_URL="${REPORTER_URL}/get_scan_pagination/${APP_ID}?page=1&items_per_page=10"
+        echo "🌐 URL da API: ${API_URL}"
 
         # Tenta obter o scan ID por até 5 minutos (30 tentativas, 10 segundos cada)
+        echo "⏳ Iniciando pesquisa pelo scan criado (até 5 minutos)..."
         for i in {1..30}; do
-          echo "Tentativa $i de 30..."
+          echo "🔄 Tentativa $i de 30..."
           
           # Captura a resposta completa
           RESPONSE=$(curl -sS -X GET "${API_URL}" \
@@ -740,19 +1316,26 @@ runs:
           
           # Verifica se a resposta é um JSON válido
           if ! echo "$RESPONSE" | jq . >/dev/null 2>&1; then
-            echo "Debug: Resposta não é um JSON válido:"
+            echo "⚠️ Resposta não é um JSON válido:"
             echo "$RESPONSE"
             if [ $i -lt 30 ]; then
-              echo "Aguardando próxima tentativa..."
+              echo "⏱️ Aguardando próxima tentativa..."
               sleep 10
               continue
             fi
+            echo "::error::❌ API retornou resposta inválida após múltiplas tentativas."
+            echo "::endgroup::"
             exit 1
           fi
 
           # Debug da resposta (limitado aos campos relevantes)
-          echo "Debug: Scans encontrados:"
-          echo "$RESPONSE" | jq -r '.data[] | {scanuuid, id, scan_status, created_at}'
+          echo "📋 Scans encontrados:"
+          SCANS_INFO=$(echo "$RESPONSE" | jq -r '.data[] | "ID: \(.id) | Versão: \(.scanuuid) | Status: \(.scan_status) | Data: \(.created_at)"')
+          if [ -z "$SCANS_INFO" ]; then
+            echo "📭 Nenhum scan encontrado para esta aplicação."
+          else
+            echo "$SCANS_INFO"
+          fi
           
           # Verifica se a resposta tem a estrutura esperada e contém dados
           if [ "$(echo "$RESPONSE" | jq -r 'has("data")')" = "true" ] && [ "$(echo "$RESPONSE" | jq -r '.data | length')" -gt 0 ]; then
@@ -768,12 +1351,13 @@ runs:
               {
                 echo "APP_ID=${APP_ID}"
                 echo "SCAN_ID=${SCAN_ID}"
-                echo "SCAN_URL=https://shield.xguardianplatform.io/aplicacoes/${APP_ID}/scans"
+                echo "SCAN_URL=${BASE_URL}/aplicacoes/${APP_ID}/scans"
               } >> "$GITHUB_ENV"
               
               # Cria arquivo de estado com os dados
               echo "${APP_ID}:${SCAN_ID}" > /tmp/xguardian_scan_complete
               
+              echo "✅ Scan encontrado com sucesso!"
               echo "::notice title=XGuardian Scan::Scan encontrado com sucesso!"
               echo "::notice title=XGuardian Scan::Aplicação: ${APP_NAME}"
               echo "::notice title=XGuardian Scan::ID da Aplicação (APP_ID): ${APP_ID}"
@@ -782,45 +1366,53 @@ runs:
               echo "::notice title=XGuardian Scan::Criado em: ${CREATED_AT}"
               break
             else
-              echo "Debug: SCAN_ID não encontrado nesta tentativa"
-              echo "Debug: Procurando por versão: $SCAN_VERSION"
+              echo "🔍 Scan com versão '${SCAN_VERSION}' ainda não encontrado nesta tentativa."
             fi
           else
-            echo "Debug: Resposta não contém dados válidos"
+            echo "⚠️ Resposta da API não contém dados válidos de scans."
           fi
           
           if [ $i -lt 30 ]; then
-            echo "Scan ainda não encontrado. Aguardando..."
+            echo "⏱️ Scan ainda não encontrado. Aguardando 10 segundos..."
             sleep 10
           fi
         done
 
         # Verifica se o SCAN_ID foi encontrado
-        if [ -z "$SCAN_ID" ] || [ "$SCAN_ID" == "null" ]; then
-          echo "::error title=XGuardian Scan::Não foi possível encontrar o ID do Scan após múltiplas tentativas."
+        if [ -z "${SCAN_ID:-}" ] || [ "${SCAN_ID:-null}" == "null" ]; then
+          echo "::error title=XGuardian Scan::❌ Não foi possível encontrar o ID do Scan após múltiplas tentativas."
           echo "::error title=XGuardian Scan::Versão procurada: ${SCAN_VERSION}"
           echo "::error title=XGuardian Scan::Última resposta da API:"
           echo "$RESPONSE" | jq '.' || echo "$RESPONSE"
+          echo "::endgroup::"
           exit 1
         fi
+        echo "::endgroup::"
 
     - name: Aguardar finalização do scan
       shell: bash
       env:
-        API_TOKEN: ${{ inputs.api_token }}
+        REPORTER_URL: ${{ env.REPORTER_URL }}
+        API_TOKEN: ${{ env.API_TOKEN }}
         APP_ID: ${{ env.APP_ID }}
         SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
       run: |
+        echo "::group::⏳ Monitorando status do scan"
         SCAN_STATUS=""
+        start_time=$(date +%s)
+
+        echo "🔄 Aguardando finalização do scan (versão: ${SCAN_VERSION})"
+        echo "   Este processo pode levar alguns minutos..."
+        echo "   A ferramenta verificará o status periodicamente."
+        echo ""
 
         check_scan_status() {
-          local response=$(curl -s -X GET "https://reporter.xguardianplatform.io/get_scan_pagination/${APP_ID}?page=1&items_per_page=10" \
+          local response=$(curl -s -X GET "${REPORTER_URL}/get_scan_pagination/${APP_ID}?page=1&items_per_page=10" \
             -H 'accept: application/json' \
             -H "Authorization: Bearer ${API_TOKEN}")
 
           if ! echo "$response" | jq . >/dev/null 2>&1; then
-            echo "Debug: Resposta não é um JSON válido:"
-            echo "$response"
+            echo "⚠️ Resposta não é um JSON válido."
             return 1
           fi
 
@@ -828,41 +1420,94 @@ runs:
 
           if [ -n "$SCAN_DATA" ] && [ "$SCAN_DATA" != "null" ]; then
             SCAN_STATUS=$(echo "$SCAN_DATA" | jq -r '.scan_status')
-            echo "Scan status: $SCAN_STATUS"
+            return 0
           else
-            echo "Scan não encontrado na resposta."
+            echo "⚠️ Scan não encontrado na resposta."
             return 1
           fi
         }
 
+        # Visual para acompanhamento do progresso
+        display_progress() {
+          local elapsed=$1
+          local status=$2
+          local elapsed_min=$((elapsed / 60))
+          local elapsed_sec=$((elapsed % 60))
+          
+          if [ "$status" == "RUNNING" ]; then
+            status_emoji="🔄"
+            status_text="EM EXECUÇÃO"
+          elif [ "$status" == "FINISHED" ]; then
+            status_emoji="✅"
+            status_text="FINALIZADO"
+          elif [ "$status" == "PENDING" ]; then
+            status_emoji="⏳"
+            status_text="PENDENTE"
+          elif [ "$status" == "FAILED" ]; then
+            status_emoji="❌"
+            status_text="FALHOU"
+          else
+            status_emoji="❓"
+            status_text="DESCONHECIDO"
+          fi
+          
+          echo "┌──────────────────────────────────────────────────┐"
+          echo "│ Status do Scan: ${status_emoji} ${status_text}"
+          echo "│ Tempo decorrido: ${elapsed_min}m ${elapsed_sec}s"
+          echo "└──────────────────────────────────────────────────┘"
+        }
+
+        # Loop principal para monitorar o status
         for i in {1..30}; do
-          echo "Verificando status do scan (tentativa $i de 30)..."
+          current_time=$(date +%s)
+          elapsed=$((current_time - start_time))
+          
+          echo "🔍 Verificando status (tentativa $i de 30)..."
+          
           if check_scan_status; then
+            display_progress $elapsed "$SCAN_STATUS"
+            
             if [ "$SCAN_STATUS" == "FINISHED" ]; then
-              echo "Scan finalizado com sucesso."
+              echo "✅ Scan finalizado com sucesso!"
+              echo "::notice title=XGuardian Scan::Scan finalizado com sucesso!"
               break
-            elif [ "$SCAN_STATUS" == "RUNNING" ]; then
-              echo "Scan ainda em andamento. Aguardando 2 minutos..."
+            elif [ "$SCAN_STATUS" == "RUNNING" ] || [ "$SCAN_STATUS" == "PENDING" ]; then
+              echo "⏳ Scan ainda em andamento. Aguardando 2 minutos antes da próxima verificação..."
               sleep 120
+            elif [ "$SCAN_STATUS" == "FAILED" ]; then
+              echo "::error::❌ Scan falhou durante a execução."
+              echo "::endgroup::"
+              exit 1
             else
-              echo "Status inesperado do scan: $SCAN_STATUS"
+              echo "⚠️ Status inesperado do scan: $SCAN_STATUS"
+              echo "::endgroup::"
               exit 1
             fi
           else
-            echo "Erro ao verificar status do scan. Tentando novamente em 2 minutos..."
+            echo "⚠️ Erro ao verificar status do scan. Tentando novamente em 2 minutos..."
             sleep 120
           fi
         done
 
         if [ "$SCAN_STATUS" != "FINISHED" ]; then
-          echo "::error::Scan não foi finalizado após múltiplas tentativas."
+          echo "::error::❌ Scan não foi finalizado após múltiplas verificações (timeout)."
+          echo "::endgroup::"
           exit 1
         fi
+
+        # Mostrar tempo total de execução
+        end_time=$(date +%s)
+        total_elapsed=$((end_time - start_time))
+        total_min=$((total_elapsed / 60))
+        total_sec=$((total_elapsed % 60))
+        echo "⏱️ Tempo total de execução do scan: ${total_min}m ${total_sec}s"
+        echo "::endgroup::"
 
     - name: Buscar vulnerabilidades e comparar com políticas
       shell: bash
       env:
-        API_TOKEN: ${{ inputs.api_token }}
+        REPORTER_URL: ${{ env.REPORTER_URL }}
+        API_TOKEN: ${{ env.API_TOKEN }}
         APP_ID: ${{ env.APP_ID }}
         SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
         SAST_CRITICAL: ${{ env.SAST_CRITICAL }}
@@ -883,9 +1528,36 @@ runs:
         SAST_PIPEACTION: ${{ env.SAST_PIPEACTION }}
         SCA_PIPEACTION: ${{ env.SCA_PIPEACTION }}
         DAST_PIPEACTION: ${{ env.DAST_PIPEACTION }}
+        POLICY_SAST: ${{ env.POLICY_SAST }}
+        POLICY_SCA: ${{ env.POLICY_SCA }}
+        POLICY_DAST: ${{ env.POLICY_DAST }}
+        BASE_URL: ${{ env.BASE_URL }}
+        APP_NAME: ${{ inputs.app_name }}
       run: |
+        echo "::group::Avaliação de vulnerabilidades"
+        check_scan_status() {
+          local response=$(curl -s -X GET "${REPORTER_URL}/get_scan_pagination/${APP_ID}?page=1&items_per_page=10" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
+
+          if ! echo "$response" | jq . >/dev/null 2>&1; then
+            echo "Debug: Resposta não é um JSON válido:"
+            echo "$response"
+            return 1
+          fi
+
+          SCAN_STATUS=$(echo "$response" | jq -r --arg version "${SCAN_VERSION}" '.data[] | select(.scanuuid == $version) | .scan_status')
+
+          if [ -z "$SCAN_STATUS" ] || [ "$SCAN_STATUS" == "null" ]; then
+            echo "::error::Não foi possível obter o status do scan."
+            return 1
+          fi
+
+          echo "Status do scan: $SCAN_STATUS"
+        }
+
         fetch_vulnerabilities() {
-          local response=$(curl -s -X GET "https://reporter.xguardianplatform.io/get_scan_pagination/${APP_ID}?page=1&items_per_page=10" \
+          local response=$(curl -s -X GET "${REPORTER_URL}/get_scan_pagination/${APP_ID}?page=1&items_per_page=10" \
             -H 'accept: application/json' \
             -H "Authorization: Bearer ${API_TOKEN}")
 
@@ -898,8 +1570,23 @@ runs:
           local scan_data=$(echo "$response" | jq -r --arg version "${SCAN_VERSION}" '.data[] | select(.scanuuid == $version)')
 
           if [ -n "$scan_data" ] && [ "$scan_data" != "null" ]; then
-            echo "Scan encontrado:"
-            echo "$scan_data" | jq '.'
+            echo "Scan encontrado com sucesso!"
+            
+            # Extrair informações básicas do scan
+            local scan_id=$(echo "$scan_data" | jq -r '.id')
+            local scan_date=$(echo "$scan_data" | jq -r '.created_at')
+            
+            echo "┌─────────────────────────────────────────────────────────┐"
+            echo "│ Informações do Scan                                     │"
+            echo "├─────────────────────────────────────────────────────────┤"
+            echo "│ Aplicação: ${APP_NAME}"
+            echo "│ ID do Scan: $scan_id"
+            echo "│ Data do Scan: $scan_date"
+            echo "│ Status: $SCAN_STATUS"
+            echo "│"
+            echo "│ 🔗 Resultados completos disponíveis em:"
+            echo "│ ${BASE_URL}/aplicacoes/${APP_ID}/scans"
+            echo "└─────────────────────────────────────────────────────────┘"
           else
             echo "::error::Scan não encontrado na resposta."
             exit 1
@@ -910,11 +1597,12 @@ runs:
 
         compare_vulnerabilities() {
           local scan_data=$1
+          local has_issues=false
 
-          local sast_critical=$(echo "$scan_data" | jq -r '.sast_critical // 0')
-          local sast_high=$(echo "$scan_data" | jq -r '.sast_high // 0')
-          local sast_medium=$(echo "$scan_data" | jq -r '.sast_medium // 0')
-          local sast_low=$(echo "$scan_data" | jq -r '.sast_low // 0')
+          local sast_critical=$(echo "$scan_data" | jq -r '.scan_critical // 0')
+          local sast_high=$(echo "$scan_data" | jq -r '.scan_high // 0')
+          local sast_medium=$(echo "$scan_data" | jq -r '.scan_medium // 0')
+          local sast_low=$(echo "$scan_data" | jq -r '.scan_low // 0')
 
           local sca_critical=$(echo "$scan_data" | jq -r '.sca_critical // 0')
           local sca_high=$(echo "$scan_data" | jq -r '.sca_high // 0')
@@ -926,6 +1614,7 @@ runs:
           local dast_medium=$(echo "$scan_data" | jq -r '.dast_medium // 0')
           local dast_low=$(echo "$scan_data" | jq -r '.dast_low // 0')
 
+          # Garantir que valores estão definidos
           SAST_CRITICAL=${SAST_CRITICAL:-0}
           SAST_HIGH=${SAST_HIGH:-0}
           SAST_MEDIUM=${SAST_MEDIUM:-0}
@@ -952,33 +1641,160 @@ runs:
             local policy_medium=$8
             local policy_low=$9
             local pipeaction=${10}
+            local policy_id=${11}
+            local result="passed"
+            local local_has_issues=false
 
-            if [ "$critical" -gt "$policy_critical" ] || [ "$high" -gt "$policy_high" ] || [ "$medium" -gt "$policy_medium" ] || [ "$low" -gt "$policy_low" ]; then
-              echo "Políticas definidas para ${scan_type^^}: CRITICAL=$policy_critical, HIGH=$policy_high, MEDIUM=$policy_medium, LOW=$policy_low"
-              echo "Vulnerabilidades encontradas para ${scan_type^^}: CRITICAL=$critical, HIGH=$high, MEDIUM=$medium, LOW=$low"
-              if [ "$pipeaction" == "fail" ]; then
-                echo "::error::Vulnerabilidades ${scan_type^^} excedem as políticas definidas."
-                exit 1
-              elif [ "$pipeaction" == "warn" ]; then
-                echo "::warning::Vulnerabilidades ${scan_type^^} excedem as políticas definidas."
-              else
-                echo "::notice::Vulnerabilidades ${scan_type^^} excedem as políticas definidas, mas nenhuma ação foi tomada devido ao pipeaction definido como 'noAction'."
-              fi
+            if [ -z "$policy_critical" ] || [ -z "$policy_high" ] || [ -z "$policy_medium" ] || [ -z "$policy_low" ]; then
+              return
             fi
+
+            if [ "$policy_critical" -eq 0 ] && [ "$policy_high" -eq 0 ] && [ "$policy_medium" -eq 0 ] && [ "$policy_low" -eq 0 ]; then
+              return
+            fi
+
+            echo "::group::Resultados de vulnerabilidades para ${scan_type^^}"
+            
+            # Cabeçalho da tabela
+            echo "┌─────────────────────────────────────────────────────────┐"
+            echo "│ Análise de vulnerabilidades de ${scan_type^^}           │"
+            echo "├─────────────────────────────────────────────────────────┤"
+            echo "│ Política aplicada: ID $policy_id                        │"
+            echo "│ Limites definidos:                                      │"
+            echo "│   CRÍTICO: $policy_critical | ALTO: $policy_high | MÉDIO: $policy_medium | BAIXO: $policy_low │"
+            echo "│ Ação configurada: $pipeaction                           │"
+            echo "├─────────────────────────────────────────────────────────┤"
+            echo "│ Vulnerabilidades encontradas:                           │"
+
+            # Mostrar vulnerabilidades encontradas com formatação adequada
+            if [ "$critical" -gt 0 ] || [ "$high" -gt 0 ] || [ "$medium" -gt 0 ] || [ "$low" -gt 0 ]; then
+                [ "$critical" -gt 0 ] && echo "│ 🔴 CRÍTICO: $critical"
+                [ "$high" -gt 0 ] && echo "│ 🟠 ALTO: $high"
+                [ "$medium" -gt 0 ] && echo "│ 🟡 MÉDIO: $medium"
+                [ "$low" -gt 0 ] && echo "│ 🔵 BAIXO: $low"
+            else
+                echo "│ ✅ Nenhuma vulnerabilidade encontrada!"
+            fi
+            echo "└─────────────────────────────────────────────────────────┘"
+
+            # Verificar se excede a política
+            if [ "$critical" -gt "$policy_critical" ] || [ "$high" -gt "$policy_high" ] || [ "$medium" -gt "$policy_medium" ] || [ "$low" -gt "$policy_low" ]; then
+                local_has_issues=true
+                result="failed"
+                
+                if [ "$pipeaction" == "fail" ]; then
+                    echo "::error title=Falha de segurança no tipo ${scan_type^^}::Vulnerabilidades ${scan_type^^} excedem as políticas definidas (ID: $policy_id)."
+                elif [ "$pipeaction" == "warn" ]; then
+                    echo "::warning title=Alerta de segurança no tipo ${scan_type^^}::Vulnerabilidades ${scan_type^^} excedem as políticas definidas (ID: $policy_id)."
+                else
+                    echo "::notice title=Informação de segurança no tipo ${scan_type^^}::Vulnerabilidades ${scan_type^^} excedem as políticas definidas (ID: $policy_id), mas nenhuma ação foi tomada devido ao pipeaction definido como 'noAction'."
+                fi
+            else
+                echo "::notice title=Verificação de ${scan_type^^} concluída::Vulnerabilidades ${scan_type^^} estão dentro dos limites aceitáveis definidos na política (ID: $policy_id)."
+            fi
+            
+            # Resumo do resultado
+            if [ "$local_has_issues" = true ]; then
+                echo "❌ Resultado da análise ${scan_type^^}: FALHOU"
+                has_issues=true
+            else
+                echo "✅ Resultado da análise ${scan_type^^}: PASSOU"
+            fi
+            
+            echo "::endgroup::"
+            
+            return 0
           }
 
-          check_vulnerabilities "sast" "$sast_critical" "$sast_high" "$sast_medium" "$sast_low" "$SAST_CRITICAL" "$SAST_HIGH" "$SAST_MEDIUM" "$SAST_LOW" "$SAST_PIPEACTION"
-          check_vulnerabilities "sca" "$sca_critical" "$sca_high" "$sca_medium" "$sca_low" "$SCA_CRITICAL" "$SCA_HIGH" "$SCA_MEDIUM" "$SCA_LOW" "$SCA_PIPEACTION"
-          check_vulnerabilities "dast" "$dast_critical" "$dast_high" "$dast_medium" "$dast_low" "$DAST_CRITICAL" "$DAST_HIGH" "$DAST_MEDIUM" "$DAST_LOW" "$DAST_PIPEACTION"
-
-          echo "::notice::Todas as vulnerabilidades estão dentro das políticas definidas."
+          # Verificar cada tipo de scan
+          [ "$sast_critical" -gt 0 ] || [ "$sast_high" -gt 0 ] || [ "$sast_medium" -gt 0 ] || [ "$sast_low" -gt 0 ] && \
+          check_vulnerabilities "sast" "$sast_critical" "$sast_high" "$sast_medium" "$sast_low" "$SAST_CRITICAL" "$SAST_HIGH" "$SAST_MEDIUM" "$SAST_LOW" "$SAST_PIPEACTION" "$POLICY_SAST"
+          
+          [ "$sca_critical" -gt 0 ] || [ "$sca_high" -gt 0 ] || [ "$sca_medium" -gt 0 ] || [ "$sca_low" -gt 0 ] && \
+          check_vulnerabilities "sca" "$sca_critical" "$sca_high" "$sca_medium" "$sca_low" "$SCA_CRITICAL" "$SCA_HIGH" "$SCA_MEDIUM" "$SCA_LOW" "$SCA_PIPEACTION" "$POLICY_SCA"
+          
+          [ "$dast_critical" -gt 0 ] || [ "$dast_high" -gt 0 ] || [ "$dast_medium" -gt 0 ] || [ "$dast_low" -gt 0 ] && \
+          check_vulnerabilities "dast" "$dast_critical" "$dast_high" "$dast_medium" "$dast_low" "$DAST_CRITICAL" "$DAST_HIGH" "$DAST_MEDIUM" "$DAST_LOW" "$DAST_PIPEACTION" "$POLICY_DAST"
+          
+          echo "::group::Resultado final da análise"
+          echo "┌─────────────────────────────────────────────────────────┐"
+          echo "│ 📊 RESUMO DA ANÁLISE DE SEGURANÇA XGUARDIAN             │"
+          echo "├─────────────────────────────────────────────────────────┤"
+          if [ "$has_issues" = true ]; then
+            echo "│ ❌ STATUS: VULNERABILIDADES ACIMA DO LIMITE PERMITIDO    │"
+          else
+            echo "│ ✅ STATUS: TODAS VULNERABILIDADES DENTRO DO ACEITÁVEL    │"
+          fi
+          echo "│                                                         │"
+          echo "│ 📈 TOTAL POR CATEGORIA:                                 │"
+          echo "├─────────────────────────────────────────────────────────┤"
+          
+          # SAST
+          if [ "$sast_critical" -gt 0 ] || [ "$sast_high" -gt 0 ] || [ "$sast_medium" -gt 0 ] || [ "$sast_low" -gt 0 ]; then
+            echo "│ SAST (Análise de Código Fonte):                         │"
+            echo "│  🔴 CRÍTICO:  $sast_critical"
+            echo "│  🟠 ALTO:     $sast_high"
+            echo "│  🟡 MÉDIO:    $sast_medium"
+            echo "│  🔵 BAIXO:    $sast_low"
+            echo "│                                                         │"
+          fi
+          
+          # SCA
+          if [ "$sca_critical" -gt 0 ] || [ "$sca_high" -gt 0 ] || [ "$sca_medium" -gt 0 ] || [ "$sca_low" -gt 0 ]; then
+            echo "│ SCA (Análise de Dependências):                          │"
+            echo "│  🔴 CRÍTICO:  $sca_critical"
+            echo "│  🟠 ALTO:     $sca_high"
+            echo "│  🟡 MÉDIO:    $sca_medium"
+            echo "│  🔵 BAIXO:    $sca_low"
+            echo "│                                                         │"
+          fi
+          
+          # DAST
+          if [ "$dast_critical" -gt 0 ] || [ "$dast_high" -gt 0 ] || [ "$dast_medium" -gt 0 ] || [ "$dast_low" -gt 0 ]; then
+            echo "│ DAST (Testes Dinâmicos):                                │"
+            echo "│  🔴 CRÍTICO:  $dast_critical"
+            echo "│  🟠 ALTO:     $dast_high"
+            echo "│  🟡 MÉDIO:    $dast_medium"
+            echo "│  🔵 BAIXO:    $dast_low"
+            echo "│                                                         │"
+          fi
+          
+          echo "├─────────────────────────────────────────────────────────┤"
+          echo "│ 🔗 RESULTADOS COMPLETOS DISPONÍVEIS EM:                 │"
+          echo "│ ${BASE_URL}/aplicacoes/${APP_ID}/scans                  │"
+          echo "└─────────────────────────────────────────────────────────┘"
+          
+          # Adicionar tempo total de execução
+          if [ -f "/tmp/xguardian_start_time" ]; then
+            start_time=$(cat /tmp/xguardian_start_time)
+            current_time=$(date +%s)
+            elapsed=$((current_time - start_time))
+            elapsed_min=$((elapsed / 60))
+            elapsed_sec=$((elapsed % 60))
+            echo "⏱️ Tempo total de execução: ${elapsed_min}m ${elapsed_sec}s"
+          fi
+          echo "::endgroup::"
         }
 
-        fetch_vulnerabilities
+        while true; do
+          check_scan_status
+          if [ "$SCAN_STATUS" == "FINISHED" ]; then
+            echo "Scan finalizado. Aguardando 30 segundos antes de buscar vulnerabilidades..."
+            sleep 30
+            fetch_vulnerabilities
+            break
+          else
+            echo "Scan ainda não finalizado. Aguardando 30 segundos antes de verificar novamente..."
+            sleep 30
+          fi
+        done
+        echo "::endgroup::"
 
     - name: Finalizar e validar outputs
       id: final_outputs
       shell: bash
+      env:
+        BASE_URL: ${{ env.BASE_URL }}
       if: ${{ inputs.get_scan_id == 'true' }}
       run: |
         if [ ! -f "/tmp/xguardian_scan_complete" ] || [ ! -s "/tmp/xguardian_scan_complete" ]; then
@@ -998,29 +1814,30 @@ runs:
         # Define os outputs corretamente
         echo "app_id=$app_id" >> "$GITHUB_OUTPUT"
         echo "scan_id=$scan_id" >> "$GITHUB_OUTPUT"
-        echo "scan_url=https://shield.xguardianplatform.io/aplicacoes/$app_id/scans" >> "$GITHUB_OUTPUT"
+        echo "scan_url=${BASE_URL}/aplicacoes/$app_id/scans" >> "$GITHUB_OUTPUT"
 
         # Define também no ambiente para compatibilidade
         {
           echo "APP_ID=$app_id"
           echo "SCAN_ID=$scan_id"
-          echo "SCAN_URL=https://shield.xguardianplatform.io/aplicacoes/$app_id/scans"
+          echo "SCAN_URL=${BASE_URL}/aplicacoes/$app_id/scans"
         } >> "$GITHUB_ENV"
 
         # Log para debug
         echo "Debug: Outputs definidos"
         echo "app_id: $app_id"
         echo "scan_id: $scan_id"
-        echo "scan_url: https://shield.xguardianplatform.io/aplicacoes/$app_id/scans"
+        echo "scan_url: ${BASE_URL}/aplicacoes/$app_id/scans"
 
     - name: Salvar vulnerabilidades no banco de dados
       if: ${{ inputs.save_vulns == 'true' }}
       shell: bash
       env:
+        UPLOADER_URL: ${{ env.UPLOADER_URL }}
         APP_ID: ${{ env.APP_ID }}
-        API_TOKEN: ${{ inputs.api_token }}
+        API_TOKEN: ${{ env.API_TOKEN }}
       run: |
-        PATCH_URL="https://uploader-mvp.xguardianplatform.io/accept_save_vulns"
+        PATCH_URL="${UPLOADER_URL}/accept_save_vulns"
         DATA=$(cat << EOF
         {
           "app_id": ${APP_ID},
@@ -1050,3 +1867,58 @@ runs:
           echo "Detalhes: $RESPONSE_BODY"
           exit 1
         fi
+
+    - name: Resumo da execução
+      shell: bash
+      if: always()
+      env:
+        APP_ID: ${{ env.APP_ID }}
+        SCAN_ID: ${{ env.SCAN_ID }}
+        SCAN_URL: ${{ env.SCAN_URL }}
+        APP_NAME: ${{ inputs.app_name }}
+        SAST: ${{ inputs.sast }}
+        SCA: ${{ inputs.sca }}
+        DAST: ${{ inputs.dast }}
+        BASE_URL: ${{ env.BASE_URL }}
+      run: |
+        echo "::group::📊 RESUMO DA EXECUÇÃO"
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ RESUMO DO SCAN DE SEGURANÇA XGUARDIAN                   │"
+        echo "└─────────────────────────────────────────────────────────┘"
+
+        # Verificar se o arquivo com o tempo de início existe
+        if [ -f "/tmp/xguardian_start_time" ]; then
+          start_time=$(cat /tmp/xguardian_start_time)
+          end_time=$(date +%s)
+          total_elapsed=$((end_time - start_time))
+          total_min=$((total_elapsed / 60))
+          total_sec=$((total_elapsed % 60))
+          
+          echo "⏱️ Tempo total de execução: ${total_min}m ${total_sec}s"
+        fi
+
+        echo ""
+        echo "🔍 Aplicação: ${APP_NAME}"
+        echo "🆔 ID da Aplicação: ${APP_ID:-'Não disponível'}"
+        echo "🔢 ID do Scan: ${SCAN_ID:-'Não disponível'}"
+
+        # Gerar um "checkmark" para cada tipo de scan habilitado
+        echo ""
+        echo "📋 Tipos de scan executados:"
+        [ "${SAST}" == "true" ] && echo "  ✅ SAST (Source Code Analysis)"
+        [ "${SCA}" == "true" ] && echo "  ✅ SCA (Software Composition Analysis)"
+        [ "${DAST}" == "true" ] && echo "  ✅ DAST (Dynamic Application Security Testing)"
+
+        # Mostrar o link para os resultados se disponível
+        if [ -n "${SCAN_URL}" ]; then
+          echo ""
+          echo "🔗 Resultados completos disponíveis em:"
+          echo "  ${SCAN_URL}"
+        else
+          echo ""
+          echo "⚠️ Link para resultados não disponível"
+        fi
+
+        echo ""
+        echo "✅ Processo de scan concluído"
+        echo "::endgroup::"
