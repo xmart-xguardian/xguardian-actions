@@ -814,10 +814,6 @@ runs:
             -H "Authorization: Bearer ${API_TOKEN}" \
             -d "${DATA}")
 
-        echo "::group::Resposta completa da API (para debug)"
-        echo "$RESPONSE" | jq '.' || echo "$RESPONSE"
-        echo "::endgroup::"
-
         GET_UPLOAD_URL=$(echo "${RESPONSE}" | jq -r '.url')
 
         if [ -z "$GET_UPLOAD_URL" ] || [ "$GET_UPLOAD_URL" = "null" ]; then
@@ -828,10 +824,10 @@ runs:
         fi
 
         echo "✅ URL de upload obtida com sucesso"
-        # Mostrar apenas parte inicial da URL para evitar poluir o log
-        URL_PREVIEW=$(echo "${GET_UPLOAD_URL}" | cut -c 1-90)
-        echo "🔗 URL de Upload: ${URL_PREVIEW}..."
-        echo "GET_UPLOAD_URL=${GET_UPLOAD_URL}" >> $GITHUB_ENV
+        umask 077
+        upload_response_file=$(mktemp "$RUNNER_TEMP/xg-presigned.XXXXXX")
+        printf '%s' "$RESPONSE" > "$upload_response_file"
+        printf 'XG_UPLOAD_RESPONSE_FILE=%s\n' "$upload_response_file" >> "$GITHUB_ENV"
         echo "::endgroup::"
 
     - name: Realizar o scan DAST
@@ -1040,9 +1036,7 @@ runs:
         fi
 
         echo "🚀 Fazendo upload do .tar para S3..."
-        curl -sS -X PUT "${PRESIGNED_URL}" \
-          -H "Content-Type: application/x-tar" \
-          --data-binary "@${TAR_FILE}"
+        printf '%s' "$RESPONSE" | sh "$GITHUB_ACTION_PATH/scripts/presigned-put.sh" "$TAR_FILE" application/x-tar
 
         echo "✅ Container scan enviado com sucesso!"
         echo "::notice title=XGuardian Scan Container::Scan Container enviado para ${CONTAINER_IMAGE}"
@@ -1114,7 +1108,6 @@ runs:
         APP_NAME: ${{ inputs.app_name }}
         APP_ID: ${{ env.APP_ID }}
         SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
-        GET_UPLOAD_URL: ${{ env.GET_UPLOAD_URL }}
       run: |
         echo "::group::📤 UPLOAD DE ARQUIVOS PARA ANÁLISE"
         echo "┌─────────────────────────────────────────────────────────┐"
@@ -1140,7 +1133,6 @@ runs:
         echo "📊 Tamanho do arquivo: ${fileSize}"
 
         # A URL já deve vir pronta para uso do endpoint anterior
-        echo "🔗 URL de Upload: ${GET_UPLOAD_URL:0:60}..."
 
         # Função para exibir barra de progresso mais visual
         show_progress() {
@@ -1156,12 +1148,9 @@ runs:
         # Upload com barra de progresso visível
         echo "🚀 Iniciando upload... (isso pode levar alguns minutos dependendo do tamanho do arquivo)"
 
-        result=$(curl -# --fail --location --request PUT "${GET_UPLOAD_URL}" \
-          --header 'Content-Type: application/zip' \
-          --data-binary "@${filePath}" \
-          2>&1 | tee /dev/stderr | grep -o '[0-9]*\.[0-9]%' | tail -1)
-
-        exit_code=$?
+        trap 'rm -f -- "$XG_UPLOAD_RESPONSE_FILE"' EXIT
+        exit_code=0
+        sh "$GITHUB_ACTION_PATH/scripts/presigned-put.sh" "$filePath" application/zip < "$XG_UPLOAD_RESPONSE_FILE" || exit_code=$?
 
         # Garantir que a barra de progresso termina em 100%
         if [ $exit_code -eq 0 ]; then

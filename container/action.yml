@@ -226,16 +226,7 @@ runs:
         fi
 
         echo "🚀 Fazendo upload do .tar para S3..."
-        PUT_RESPONSE=$(curl -sS -X PUT "${PRESIGNED_URL}" \
-          -H "Content-Type: application/x-tar" \
-          --data-binary "@${TAR_FILE}")
-
-        if echo "${PUT_RESPONSE}" | grep -q "<Error>"; then
-          ERROR_CODE=$(echo "${PUT_RESPONSE}" | grep -o '<Code>[^<]*</Code>' | sed 's/<[^>]*>//g')
-          echo "::error title=XGuardian Container::Falha no upload para S3: ${ERROR_CODE}"
-          echo "::endgroup::"
-          exit 1
-        fi
+        printf '%s' "$RESPONSE" | sh "$GITHUB_ACTION_PATH/../scripts/presigned-put.sh" "$TAR_FILE" application/x-tar
 
         echo "✅ Container scan enviado com sucesso!"
         echo "::notice title=XGuardian Container::Scan enviado para ${CONTAINER_IMAGE}"

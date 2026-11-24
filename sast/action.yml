@@ -232,7 +232,10 @@ runs:
           echo "::error::Não foi possível obter a URL de upload."
           exit 1
         fi
-        echo "GET_UPLOAD_URL=${GET_UPLOAD_URL}" >> $GITHUB_ENV
+        umask 077
+        upload_response_file=$(mktemp "$RUNNER_TEMP/xg-presigned.XXXXXX")
+        printf '%s' "$RESPONSE" > "$upload_response_file"
+        printf 'XG_UPLOAD_RESPONSE_FILE=%s\n' "$upload_response_file" >> "$GITHUB_ENV"
         echo "✅ URL de upload obtida."
         echo "::endgroup::"
 
@@ -257,12 +260,10 @@ runs:
       shell: bash
       env:
         SAFE_APP_NAME: ${{ env.SAFE_APP_NAME }}
-        GET_UPLOAD_URL: ${{ env.GET_UPLOAD_URL }}
       run: |
+        trap 'rm -f -- "$XG_UPLOAD_RESPONSE_FILE"' EXIT
         echo "::group::Upload do arquivo ZIP"
-        curl -# --fail --location --request PUT "${GET_UPLOAD_URL}" \
-          --header 'Content-Type: application/zip' \
-          --data-binary "@./${SAFE_APP_NAME}.zip"
+        sh "$GITHUB_ACTION_PATH/../scripts/presigned-put.sh" "./${SAFE_APP_NAME}.zip" application/zip < "$XG_UPLOAD_RESPONSE_FILE"
         echo "✅ Upload concluído."
         echo "::endgroup::"
 
