@@ -1,0 +1,28 @@
+name: XGuardian Container Scan
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  xguardian-container:
+    name: XGuardian — Container Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Build da imagem Docker
+        run: docker build -t minha-app:${{ github.sha }} .
+
+      - name: Scan de Container
+        uses: xguardian-actions/actions/container@main
+        with:
+          token: ${{ secrets.XGUARDIAN_TOKEN }}
+          app_name: "minha-app"
+          team_id: "[1]"
+          languages: '["JavaScript"]'
+          container_image: "minha-app:${{ github.sha }}"
+          # translate: "false"
+          # pdf: "false"

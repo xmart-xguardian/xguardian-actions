@@ -1,0 +1,31 @@
+name: XGuardian SAST + SCA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  xguardian-sast-sca:
+    name: XGuardian — SAST + SCA
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Scan SAST + SCA
+        uses: xguardian-actions/actions/sast-sca@main
+        with:
+          token: ${{ secrets.XGUARDIAN_TOKEN }}
+          app_name: "minha-app"
+          team_id: "[1]"
+          languages: '["JavaScript"]'
+          # sast: "true"          # padrão
+          # sca: "true"           # padrão
+          # scan_directory: "."   # padrão
+          # exclude: "node_modules/,dist/"
+          # translate: "false"
+          # pdf: "false"
+          # get_scan_id: "false"

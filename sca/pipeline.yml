@@ -1,0 +1,29 @@
+name: XGuardian SCA
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 8 * * 1"  # toda segunda-feira às 08h UTC
+
+jobs:
+  xguardian-sca:
+    name: XGuardian — SCA
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Scan SCA
+        uses: xguardian-actions/actions/sca@main
+        with:
+          token: ${{ secrets.XGUARDIAN_TOKEN }}
+          app_name: "minha-app"
+          team_id: "[1]"
+          languages: '["JavaScript"]'
+          # scan_directory: "."   # padrão
+          # exclude: "node_modules/,dist/"
+          # translate: "false"
+          # pdf: "false"
+          # get_scan_id: "false"

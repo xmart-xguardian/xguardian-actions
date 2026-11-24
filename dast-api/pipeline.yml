@@ -1,0 +1,27 @@
+name: XGuardian DAST API
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  xguardian-dast-api:
+    name: XGuardian — DAST API
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Scan DAST API
+        uses: xguardian-actions/actions/dast-api@main
+        with:
+          token: ${{ secrets.XGUARDIAN_TOKEN }}
+          app_name: "minha-api"
+          team_id: "[1]"
+          languages: '["JavaScript"]'
+          site_url: "https://api.minha-app.exemplo.com"
+          api_token: ${{ secrets.API_BEARER_TOKEN }}
+          # translate: "false"
+          # pdf: "false"

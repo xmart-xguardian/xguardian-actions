@@ -1,0 +1,30 @@
+name: XGuardian DAST Web
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  xguardian-dast-web:
+    name: XGuardian — DAST Web
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Scan DAST Web
+        uses: xguardian-actions/actions/dast-web@main
+        with:
+          token: ${{ secrets.XGUARDIAN_TOKEN }}
+          app_name: "minha-app"
+          team_id: "[1]"
+          languages: '["JavaScript"]'
+          site_url: "https://minha-app.exemplo.com"
+          # --- Login com formulário (opcional) ---
+          auth_exist: "true"
+          user_login: ${{ secrets.SITE_USER }}
+          password_login: ${{ secrets.SITE_PASSWORD }}
+          # translate: "false"
+          # pdf: "false"

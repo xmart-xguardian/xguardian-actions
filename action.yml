@@ -1,40 +1,37 @@
 # =====================================================================
-# XGuardian Security Scanning Action
+# XGuardian Security Action
 # =====================================================================
-# Versão: v25.3.0
+# Versão: v26.6.1
 # Autor: Xmart Solutions
 #
 # Esta action realiza scans de segurança automatizados para a plataforma XGuardian.
-# Suporta análises SAST (Source Code Analysis), SCA (Software Composition Analysis),
-# e DAST (Dynamic Application Security Testing).
+# Suporta análises SAST, SCA, DAST Web, DAST API e Container.
 #
 # Requisitos:
-#  - Credenciais de acesso à plataforma XGuardian (email/senha)
-#  - Escolha de pelo menos um tipo de scan (SAST, SCA ou DAST)
-#  - Para DAST: URL do site a ser analisado
+#  - PAT (Personal Access Token) gerado na plataforma XGuardian
+#  - Escolha de pelo menos um tipo de scan
+#  - Para DAST Web: URL do site + credenciais do alvo
+#  - Para Container: nome e tag da imagem Docker
 #
-# Para mais informações, visite: https://github.com/marketplace/actions/xguardian-scanning
+# Para mais informações, visite: https://github.com/marketplace/actions/xguardian-security-action
 # =====================================================================
 
-name: XGuardian Scanning
-description: "Realize análises de segurança automatizadas (SAST/SCA/DAST) direto do GitHub Actions para a plataforma XGuardian."
+name: XGuardian Security Action
+description: "Realize análises de segurança automatizadas (SAST/SCA/DAST Web/DAST API/Container) direto do GitHub Actions para a plataforma XGuardian."
 author: "Xmart Solutions"
 
 branding:
   icon: "shield"
   color: purple
   label: Security Scanning
-version: v25.3.0
+version: v26.6.1
 
 inputs:
   # ========================================================================================
   # CREDENCIAIS OBRIGATÓRIAS
   # ========================================================================================
-  api_email:
-    description: "Email de acesso à plataforma XGuardian. Recomenda-se usar secrets do GitHub."
-    required: true
-  api_password:
-    description: "Senha de acesso à plataforma XGuardian. Recomenda-se usar secrets do GitHub."
+  token:
+    description: "PAT (Personal Access Token) gerado na plataforma XGuardian. Use secrets do GitHub."
     required: true
 
   # ========================================================================================
@@ -67,15 +64,10 @@ inputs:
     description: "ID da política de DAST (análise dinâmica) a ser aplicada. Use 0 para política padrão."
     default: "0"
     required: false
-  microservices:
-    description: "Indica se a aplicação possui microserviços. Valores aceitos: true ou false"
-    default: "false"
+  policy_container:
+    description: "ID da política de Container a ser aplicada. Use 0 para política padrão."
+    default: "0"
     required: false
-  microservices_data:
-    description: 'Dados dos microserviços no formato JSON array. Ex: [{"name": "MS1", "language": ["JavaScript"]}]'
-    default: '[{"name": "MS1", "language": ["JavaScript"]}]'
-    required: false
-
   # ========================================================================================
   # SELEÇÃO DO TIPO DE SCAN
   # ========================================================================================
@@ -94,6 +86,20 @@ inputs:
     default: "false"
     type: string
     required: false
+  container:
+    description: "Ativa o scan Container (análise de imagens de container via Grype). Valores aceitos: true ou false"
+    default: "false"
+    type: string
+    required: false
+
+  # ========================================================================================
+  # CONFIGURAÇÕES PARA O SCAN CONTAINER
+  # ========================================================================================
+  container_image:
+    description: "Nome e tag da imagem Docker a ser escaneada. Ex: minha-app:latest. A action executa docker save internamente e faz o upload do .tar para o XGuardian."
+    default: ""
+    required: false
+    type: string
 
   # ========================================================================================
   # CONFIGURAÇÕES PARA O SCAN DAST
@@ -249,39 +255,16 @@ runs:
         fi
         echo "::endgroup::"
 
-    - name: Validando input secrets de email e senha
-      shell: bash
-      env:
-        API_EMAIL: ${{ inputs.api_email }}
-        API_PASSWORD: ${{ inputs.api_password }}
-      run: |
-        echo "API_EMAIL: $API_EMAIL"
-        echo "API_PASSWORD: $API_PASSWORD"
-
-        # Validar formato de email
-        if [[ ! "$API_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-          echo "::error::Formato de email inválido"
-          exit 1
-        fi
-
-        # Validar comprimento mínimo da senha
-        PASSWORD_LENGTH=$(echo -n "$API_PASSWORD" | wc -c)
-        if [ $PASSWORD_LENGTH -lt 8 ]; then
-          echo "::error::Senha deve ter pelo menos 8 caracteres"
-          exit 1
-        fi
-
-        echo "Todos os inputs sensíveis são válidos."
-
     - name: Validar tipos de scan
       shell: bash
       env:
         SAST: ${{ inputs.sast }}
         SCA: ${{ inputs.sca }}
         DAST: ${{ inputs.dast }}
+        CONTAINER: ${{ inputs.container }}
       run: |
-        if [ "${SAST}" != "true" ] && [ "${SCA}" != "true" ] && [ "${DAST}" != "true" ]; then
-          echo "::error::Pelo menos um tipo de scan (SAST, SCA ou DAST) deve estar habilitado."
+        if [ "${SAST}" != "true" ] && [ "${SCA}" != "true" ] && [ "${DAST}" != "true" ] && [ "${CONTAINER}" != "true" ]; then
+          echo "::error::Pelo menos um tipo de scan (SAST, SCA, DAST ou Container) deve estar habilitado."
           exit 1
         fi
 
@@ -290,57 +273,10 @@ runs:
           exit 1
         fi
 
-    - name: Validar e renovar token se necessário
-      shell: bash
-      env:
-        AUTH_URL: ${{ env.AUTH_URL }}
-        API_EMAIL: ${{ inputs.api_email }}
-        API_PASSWORD: ${{ inputs.api_password }}
-      run: |
-        echo "::group::Validação de token de API"
-        set -e
-
-        renew_token() {
-            echo "Renovando token..."
-            local max_attempts=3
-            local attempt=1
-            
-            while [ $attempt -le $max_attempts ]; do
-                echo "Tentativa $attempt de $max_attempts para renovar token..."
-                
-                response=$(curl -s --connect-timeout 10 --max-time 30 -X POST "${AUTH_URL}/login" \
-                  -H 'accept: application/json' \
-                  -H 'Content-Type: application/json' \
-                  -d '{"email": "'${API_EMAIL}'", "password": "'${API_PASSWORD}'"}' | jq -r '.token')
-                
-                if [[ -n "$response" && "$response" != "null" ]]; then
-                  echo "Novo token obtido com sucesso."
-                  echo "API_TOKEN=$response" >> $GITHUB_ENV
-                  API_TOKEN=$response
-                  return 0
-                fi
-                
-                echo "Falha na tentativa $attempt. Aguardando antes de tentar novamente..."
-                sleep $(( attempt * 5 ))
-                attempt=$((attempt+1))
-            done
-            
-            echo "::error::Todas as tentativas de renovação de token falharam."
-            echo "::endgroup::"
-            exit 1
-        }
-
-        echo "Verificando validade do token..."
-        test_response=$(curl -s -X GET "${AUTH_URL}/ping" \
-          -H 'accept: application/json' \
-          -H "Authorization: Bearer ${API_TOKEN}")
-
-        if echo "$test_response" | grep -q '"detail": "Token is invalid, Signature has expired."'; then
-          renew_token
-        else
-          echo "Token válido."
+        if [ "${CONTAINER}" == "true" ] && [ -z "${{ inputs.container_image }}" ]; then
+          echo "::error::container_image é obrigatório quando o scan Container está habilitado."
+          exit 1
         fi
-        echo "::endgroup::"
 
     - name: Exibir informações iniciais do processo
       shell: bash
@@ -349,7 +285,9 @@ runs:
         SAST: ${{ inputs.sast }}
         SCA: ${{ inputs.sca }}
         DAST: ${{ inputs.dast }}
+        CONTAINER: ${{ inputs.container }}
         SITE_URL: ${{ inputs.site_url }}
+        CONTAINER_IMAGE: ${{ inputs.container_image }}
         BASE_URL: ${{ env.BASE_URL }}
         REPORTER_URL: ${{ env.REPORTER_URL }}
         UPLOADER_URL: ${{ env.UPLOADER_URL }}
@@ -357,9 +295,9 @@ runs:
         SCAN_DIR: ${{ inputs.scan_directory }}
         DEVELOPMENT: ${{ inputs.is_development }}
       run: |
-        echo "::group::XGuardian Security Scan - Iniciando"
+        echo "::group::XGuardian Security Action - Iniciando"
         echo "┌─────────────────────────────────────────────────────────┐"
-        echo "│ XGuardian Security Scan - Configuração Inicial          │"
+        echo "│ XGuardian Security Action - Configuração Inicial        │"
         echo "├─────────────────────────────────────────────────────────┤"
         echo "│ Aplicação: ${APP_NAME}"
         echo "│ Ambiente: $([ "${DEVELOPMENT}" == "true" ] && echo "Desenvolvimento" || echo "Produção")"
@@ -367,9 +305,14 @@ runs:
         [ "${SAST}" == "true" ] && echo "│  ✅ SAST - Source Code Analysis"
         [ "${SCA}" == "true" ] && echo "│  ✅ SCA - Software Composition Analysis"
         [ "${DAST}" == "true" ] && echo "│  ✅ DAST - Dynamic Application Security Testing"
+        [ "${CONTAINER}" == "true" ] && echo "│  ✅ Container - Container Image Security Scan"
 
         if [ "${DAST}" == "true" ]; then
           echo "│  🔗 URL alvo DAST: ${SITE_URL}"
+        fi
+
+        if [ "${CONTAINER}" == "true" ]; then
+          echo "│  🐳 Imagem Container: ${CONTAINER_IMAGE}"
         fi
 
         echo "│"
@@ -399,63 +342,11 @@ runs:
         echo "✅ Dependências básicas instaladas com sucesso!"
         echo "::endgroup::"
 
-    - name: Fazer login na API e armazenar o token
+    - name: Configurar token de autenticação
       shell: bash
-      env:
-        AUTH_URL: ${{ env.AUTH_URL }}
-        API_EMAIL: ${{ inputs.api_email }}
-        API_PASSWORD: ${{ inputs.api_password }}
       run: |
-        echo "::group::🔐 AUTENTICAÇÃO NA API XGUARDIAN"
-        echo "┌─────────────────────────────────────────────────────────┐"
-        echo "│ INICIANDO PROCESSO DE AUTENTICAÇÃO                      │"
-        echo "└─────────────────────────────────────────────────────────┘"
-
-        # Função para tratamento de erros
-        handle_error() {
-          local error_msg="$1"
-          local exit_code="${2:-1}"
-          
-          echo "┌─────────────────────────────────────────────────────────┐"
-          echo "│ ❌ ERRO: $error_msg                                     │"
-          echo "└─────────────────────────────────────────────────────────┘"
-          echo "::error::$error_msg"
-          echo "::endgroup::"
-          exit "$exit_code"
-        }
-
-        # Função para fazer login com retry
-        login_with_retry() {
-          local max_attempts=3
-          local attempt=1
-          
-          while [ $attempt -le $max_attempts ]; do
-            echo "🔄 Tentativa $attempt de $max_attempts para obter token..."
-            
-            response=$(curl -s -X 'POST' "${AUTH_URL}/login" \
-              -H 'accept: application/json' \
-              -H 'Content-Type: application/json' \
-              -d '{
-                "email": "'"${API_EMAIL}"'",
-                "password": "'"${API_PASSWORD}"'"
-              }' | jq -r '.token')
-              
-            if [ -n "$response" ] && [ "$response" != "null" ]; then
-              echo "API_TOKEN=$response" >> $GITHUB_ENV
-              echo "✅ Token obtido com sucesso!"
-              return 0
-            fi
-            
-            echo "⚠️ Falha na tentativa $attempt. Aguardando antes de tentar novamente..."
-            sleep $(( attempt * 5 ))
-            attempt=$((attempt+1))
-          done
-          
-          handle_error "Todas as tentativas de login falharam. Verifique suas credenciais ou a disponibilidade da API."
-        }
-
-        login_with_retry
-        echo "::endgroup::"
+        echo "::add-mask::${{ inputs.token }}"
+        echo "API_TOKEN=${{ inputs.token }}" >> $GITHUB_ENV
 
     - name: Verificar se a aplicação existe, caso contrário, cria a aplicação
       shell: bash
@@ -469,8 +360,6 @@ runs:
         POLICY_SAST: ${{ inputs.policy_sast }}
         POLICY_SCA: ${{ inputs.policy_sca }}
         POLICY_DAST: ${{ inputs.policy_dast }}
-        MICROSERVICES: ${{ inputs.microservices }}
-        MICROSERVICES_DATA: ${{ inputs.microservices_data }}
       run: |
         echo "::group::Verificando e configurando aplicação"
         # Converte caracteres especiais para espaços, mantendo espaços existentes
@@ -586,26 +475,12 @@ runs:
             echo "::warning::Não foi possível verificar as equipes disponíveis. Continuando mesmo assim..."
           fi
 
-          # Determine microservices value
-          if [[ "${MICROSERVICES}" == "true" ]]; then
-            MICROSERVICES_VALUE="true"
-          else
-            MICROSERVICES_VALUE="false"
-          fi
-          
           # Start building the JSON
           JSON_CONTENT='{'
           JSON_CONTENT+='"app_name": "'"${APP_NAME}"'",'
           JSON_CONTENT+='"team_id": '"${TEAM_ID}"','
           JSON_CONTENT+='"languages": '"${LANGUAGES}"','
-          JSON_CONTENT+='"description": "'"${DESCRIPTION}"'",'
-          JSON_CONTENT+='"microservices": '"${MICROSERVICES_VALUE}"
-          
-          # Add microservices_data only if microservices is true
-          if [[ "${MICROSERVICES}" == "true" ]]; then
-            JSON_CONTENT+=',"microservices_data": '"${MICROSERVICES_DATA}"
-          fi
-          
+          JSON_CONTENT+='"description": "'"${DESCRIPTION}"'"'
           JSON_CONTENT+='}'
           
           echo "📝 Payload para criação da aplicação:"
@@ -939,10 +814,6 @@ runs:
             -H "Authorization: Bearer ${API_TOKEN}" \
             -d "${DATA}")
 
-        echo "::group::Resposta completa da API (para debug)"
-        echo "$RESPONSE" | jq '.' || echo "$RESPONSE"
-        echo "::endgroup::"
-
         GET_UPLOAD_URL=$(echo "${RESPONSE}" | jq -r '.url')
 
         if [ -z "$GET_UPLOAD_URL" ] || [ "$GET_UPLOAD_URL" = "null" ]; then
@@ -953,10 +824,10 @@ runs:
         fi
 
         echo "✅ URL de upload obtida com sucesso"
-        # Mostrar apenas parte inicial da URL para evitar poluir o log
-        URL_PREVIEW=$(echo "${GET_UPLOAD_URL}" | cut -c 1-90)
-        echo "🔗 URL de Upload: ${URL_PREVIEW}..."
-        echo "GET_UPLOAD_URL=${GET_UPLOAD_URL}" >> $GITHUB_ENV
+        umask 077
+        upload_response_file=$(mktemp "$RUNNER_TEMP/xg-presigned.XXXXXX")
+        printf '%s' "$RESPONSE" > "$upload_response_file"
+        printf 'XG_UPLOAD_RESPONSE_FILE=%s\n' "$upload_response_file" >> "$GITHUB_ENV"
         echo "::endgroup::"
 
     - name: Realizar o scan DAST
@@ -1098,6 +969,79 @@ runs:
         fi
         echo "::endgroup::"
 
+    - name: Realizar o scan Container
+      if: ${{ inputs.container == 'true' }}
+      shell: bash
+      env:
+        UPLOADER_URL: ${{ env.UPLOADER_URL }}
+        API_TOKEN: ${{ env.API_TOKEN }}
+        APP_ID: ${{ env.APP_ID }}
+        SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
+        CONTAINER_IMAGE: ${{ inputs.container_image }}
+        TRANSLATE: ${{ inputs.translate }}
+        PDF: ${{ inputs.pdf }}
+      run: |
+        echo "::group::Configuração e execução do scan Container"
+
+        # Verificar se o APP_ID é N/A e buscar o ID correto se necessário
+        if [ "${APP_ID}" = "N/A" ]; then
+          echo "⚠️ APP_ID é N/A, buscando o ID correto..."
+          RESPONSE=$(curl -sS -X GET "${UPLOADER_URL}/get_apps_new?page=1&items_per_page=10" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
+
+          APP_ID=$(echo "$RESPONSE" | jq -r --arg NAME "${{ inputs.app_name }}" '.data[] | select(.name == $NAME) | .id' | head -n 1)
+
+          if [ -z "$APP_ID" ]; then
+            echo "::error::Não foi possível encontrar o APP_ID para a aplicação ${{ inputs.app_name }}"
+            echo "::endgroup::"
+            exit 1
+          fi
+          echo "✅ APP_ID encontrado: $APP_ID"
+          echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+        fi
+
+        IMAGE_NAME=$(echo "${CONTAINER_IMAGE}" | tr ':/' '-')
+        TAR_FILE="${IMAGE_NAME}.tar"
+
+        echo "🐳 Salvando imagem ${CONTAINER_IMAGE} como ${TAR_FILE}..."
+        docker save "${CONTAINER_IMAGE}" -o "${TAR_FILE}"
+
+        echo "📤 Obtendo URL de upload para Container..."
+        DATA=$(cat << EOF
+        {
+          "app_id": "${APP_ID}",
+          "scan_version": "${SCAN_VERSION}",
+          "file_type": "tar",
+          "container": "${CONTAINER_IMAGE}",
+          "translate": "${TRANSLATE}",
+          "pdf": "${PDF}"
+        }
+        EOF
+        )
+
+        RESPONSE=$(curl -sS -X POST "${UPLOADER_URL}/upload-container" \
+          -H 'accept: application/json' \
+          -H "Authorization: Bearer ${API_TOKEN}" \
+          -H 'Content-Type: application/json' \
+          -d "${DATA}")
+
+        PRESIGNED_URL=$(echo "$RESPONSE" | jq -r '.url // empty')
+
+        if [ -z "${PRESIGNED_URL}" ]; then
+          ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error // .message // .detail // "Erro desconhecido"')
+          echo "::error title=XGuardian Scan Container::Falha ao obter URL de upload: ${ERROR_MSG}"
+          echo "::endgroup::"
+          exit 1
+        fi
+
+        echo "🚀 Fazendo upload do .tar para S3..."
+        printf '%s' "$RESPONSE" | sh "$GITHUB_ACTION_PATH/scripts/presigned-put.sh" "$TAR_FILE" application/x-tar
+
+        echo "✅ Container scan enviado com sucesso!"
+        echo "::notice title=XGuardian Scan Container::Scan Container enviado para ${CONTAINER_IMAGE}"
+        echo "::endgroup::"
+
     - name: Zipar os arquivos
       if: ${{ inputs.sast == 'true' || inputs.sca == 'true' }}
       shell: bash
@@ -1164,7 +1108,6 @@ runs:
         APP_NAME: ${{ inputs.app_name }}
         APP_ID: ${{ env.APP_ID }}
         SCAN_VERSION: ${{ format('{0}-{1}', inputs.app_name, steps.vars.outputs.short_sha) }}
-        GET_UPLOAD_URL: ${{ env.GET_UPLOAD_URL }}
       run: |
         echo "::group::📤 UPLOAD DE ARQUIVOS PARA ANÁLISE"
         echo "┌─────────────────────────────────────────────────────────┐"
@@ -1190,7 +1133,6 @@ runs:
         echo "📊 Tamanho do arquivo: ${fileSize}"
 
         # A URL já deve vir pronta para uso do endpoint anterior
-        echo "🔗 URL de Upload: ${GET_UPLOAD_URL:0:60}..."
 
         # Função para exibir barra de progresso mais visual
         show_progress() {
@@ -1206,12 +1148,9 @@ runs:
         # Upload com barra de progresso visível
         echo "🚀 Iniciando upload... (isso pode levar alguns minutos dependendo do tamanho do arquivo)"
 
-        result=$(curl -# --fail --location --request PUT "${GET_UPLOAD_URL}" \
-          --header 'Content-Type: application/zip' \
-          --data-binary "@${filePath}" \
-          2>&1 | tee /dev/stderr | grep -o '[0-9]*\.[0-9]%' | tail -1)
-
-        exit_code=$?
+        trap 'rm -f -- "$XG_UPLOAD_RESPONSE_FILE"' EXIT
+        exit_code=0
+        sh "$GITHUB_ACTION_PATH/scripts/presigned-put.sh" "$filePath" application/zip < "$XG_UPLOAD_RESPONSE_FILE" || exit_code=$?
 
         # Garantir que a barra de progresso termina em 100%
         if [ $exit_code -eq 0 ]; then
@@ -1879,6 +1818,7 @@ runs:
         SAST: ${{ inputs.sast }}
         SCA: ${{ inputs.sca }}
         DAST: ${{ inputs.dast }}
+        CONTAINER: ${{ inputs.container }}
         BASE_URL: ${{ env.BASE_URL }}
       run: |
         echo "::group::📊 RESUMO DA EXECUÇÃO"
@@ -1893,7 +1833,7 @@ runs:
           total_elapsed=$((end_time - start_time))
           total_min=$((total_elapsed / 60))
           total_sec=$((total_elapsed % 60))
-          
+
           echo "⏱️ Tempo total de execução: ${total_min}m ${total_sec}s"
         fi
 
@@ -1908,6 +1848,7 @@ runs:
         [ "${SAST}" == "true" ] && echo "  ✅ SAST (Source Code Analysis)"
         [ "${SCA}" == "true" ] && echo "  ✅ SCA (Software Composition Analysis)"
         [ "${DAST}" == "true" ] && echo "  ✅ DAST (Dynamic Application Security Testing)"
+        [ "${CONTAINER}" == "true" ] && echo "  ✅ Container (Container Image Security Scan)"
 
         # Mostrar o link para os resultados se disponível
         if [ -n "${SCAN_URL}" ]; then

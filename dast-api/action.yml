@@ -1,0 +1,313 @@
+name: XGuardian DAST API
+description: "Análise dinâmica de APIs REST autenticadas via Bearer token para a plataforma XGuardian."
+author: "Xmart Solutions"
+
+branding:
+  icon: "shield"
+  color: purple
+
+inputs:
+  # ========================================================================================
+  # CREDENCIAIS OBRIGATÓRIAS
+  # ========================================================================================
+  token:
+    description: "PAT (Personal Access Token) gerado na plataforma XGuardian. Use secrets do GitHub."
+    required: true
+
+  # ========================================================================================
+  # CONFIGURAÇÃO DA APLICAÇÃO
+  # ========================================================================================
+  app_name:
+    description: "Nome da aplicação a ser escaneada. Obrigatório apenas ao criar app nova."
+    required: false
+    default: ""
+  app_id:
+    description: "ID da aplicação no XGuardian. Se informado, pula a busca/criação automática."
+    required: false
+    default: ""
+  team_id:
+    description: "ID(s) da(s) equipe(s) no formato JSON. Ex: [1] ou [1,2,3]"
+    default: "[1]"
+    required: false
+  languages:
+    description: 'Linguagens de programação no formato JSON array. Ex: ["JavaScript"]'
+    default: '["JavaScript"]'
+    required: false
+  description:
+    description: "Descrição da aplicação no XGuardian."
+    default: "Aplicação criada através do GitHub Actions - XGuardian"
+    required: false
+  policy_dast:
+    description: "ID da política de DAST a ser aplicada. Use 0 para política padrão."
+    default: "0"
+    required: false
+
+  # ========================================================================================
+  # CONFIGURAÇÕES DO SCAN DAST API
+  # ========================================================================================
+  site_url:
+    description: "URL base da API a ser analisada. Obrigatório."
+    required: true
+  api_token:
+    description: "Bearer token para autenticação na API alvo (credencial da API, não da plataforma XGuardian)."
+    required: true
+  translate:
+    description: "Traduz o relatório para português do Brasil. Valores: true ou false"
+    default: "false"
+    required: false
+  pdf:
+    description: "Gera relatório em PDF após o scan. Valores: true ou false"
+    default: "false"
+    required: false
+  triggered_by:
+    description: "Username GitHub que acionou o scan (auto-reportado)."
+    default: ${{ github.actor }}
+    required: false
+
+outputs:
+  app_id:
+    description: "ID da aplicação no XGuardian"
+    value: ${{ steps.final_outputs.outputs.app_id }}
+  scan_id:
+    description: "ID do scan executado"
+    value: ${{ steps.final_outputs.outputs.scan_id }}
+  scan_url:
+    description: "URL para visualizar os resultados do scan"
+    value: ${{ steps.final_outputs.outputs.scan_url }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configurar endpoints do XGuardian
+      shell: bash
+      run: |
+        echo "BASE_URL=https://shield.xguardianplatform.io" >> $GITHUB_ENV
+        echo "UPLOADER_URL=https://uploader-mvp.xguardianplatform.io" >> $GITHUB_ENV
+        echo "REPORTER_URL=https://reporter.xguardianplatform.io" >> $GITHUB_ENV
+
+    - name: Configurar token de autenticação
+      shell: bash
+      env:
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_API_TOKEN: ${{ inputs.api_token }}
+      run: |
+        echo "::add-mask::$INPUT_TOKEN"
+        echo "::add-mask::$INPUT_API_TOKEN"
+        echo "API_TOKEN=$INPUT_TOKEN" >> $GITHUB_ENV
+
+    - name: Instalar dependências
+      shell: bash
+      run: |
+        echo "::group::Instalação de dependências"
+        sudo apt-get update -qq > /dev/null
+        sudo apt-get install -y --no-install-recommends curl jq > /dev/null
+        echo "✅ Dependências instaladas."
+        echo "::endgroup::"
+
+    - name: Verificar ou criar aplicação
+      shell: bash
+      env:
+        UPLOADER_URL: ${{ env.UPLOADER_URL }}
+        APP_ID_INPUT: ${{ inputs.app_id }}
+        APP_NAME: ${{ inputs.app_name }}
+        API_TOKEN: ${{ env.API_TOKEN }}
+        TEAM_ID: ${{ inputs.team_id }}
+        LANGUAGES: ${{ inputs.languages }}
+        DESCRIPTION: ${{ inputs.description }}
+      run: |
+        echo "::group::Verificando aplicação"
+
+        if [ -z "$APP_ID_INPUT" ] && [ -z "$APP_NAME" ]; then
+          echo "::error::É necessário fornecer app_id ou app_name."
+          exit 1
+        fi
+
+        if [ -n "$APP_ID_INPUT" ]; then
+          echo "APP_ID=$APP_ID_INPUT" >> $GITHUB_ENV
+          echo "✅ Usando app_id fornecido: $APP_ID_INPUT"
+          echo "::endgroup::"
+          exit 0
+        fi
+
+        EXISTING_APP=$(curl -sS -X GET \
+          "${UPLOADER_URL}/get_apps_new?page=1&items_per_page=10" \
+          -H 'accept: application/json' \
+          -H "Authorization: Bearer ${API_TOKEN}")
+
+        APP_ID=$(echo "$EXISTING_APP" | jq -r --arg NAME "$APP_NAME" '.data[] | select(.name == $NAME) | .id' | head -n 1)
+
+        if [ -n "$APP_ID" ]; then
+          echo "✅ Aplicação encontrada: $APP_ID"
+          echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+        else
+          echo "Criando nova aplicação..."
+          JSON_CONTENT=$(jq -n \
+            --arg name "$APP_NAME" \
+            --argjson team "$TEAM_ID" \
+            --argjson langs "$LANGUAGES" \
+            --arg desc "$DESCRIPTION" \
+            '{app_name: $name, team_id: $team, languages: $langs, description: $desc}')
+          RESPONSE=$(curl -sS -X POST "${UPLOADER_URL}/create_apps" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "${JSON_CONTENT}")
+          if echo "$RESPONSE" | grep -q '"sucess":"Aplicação\|"success":"Aplicação'; then
+            echo "APP_ID=N/A" >> $GITHUB_ENV
+          else
+            echo "::error::Erro ao criar aplicação: $RESPONSE"
+            exit 1
+          fi
+        fi
+        echo "::endgroup::"
+
+    - name: Obter short_sha
+      id: vars
+      shell: bash
+      env:
+        APP_NAME: ${{ inputs.app_name }}
+        APP_ID_INPUT: ${{ inputs.app_id }}
+      run: |
+        echo "short_sha=${GITHUB_SHA:0:6}" >> $GITHUB_OUTPUT
+        APP_LABEL="$APP_NAME"
+        if [ -z "${APP_LABEL}" ]; then APP_LABEL="$APP_ID_INPUT"; fi
+        echo "app_label=${APP_LABEL}" >> $GITHUB_OUTPUT
+
+    - name: Realizar o scan DAST API
+      shell: bash
+      env:
+        UPLOADER_URL: ${{ env.UPLOADER_URL }}
+        API_TOKEN: ${{ env.API_TOKEN }}
+        APP_ID: ${{ env.APP_ID }}
+        APP_NAME: ${{ steps.vars.outputs.app_label }}
+        SCAN_VERSION: ${{ steps.vars.outputs.app_label }}-${{ steps.vars.outputs.short_sha }}
+        SITE_URL: ${{ inputs.site_url }}
+        API_TARGET_TOKEN: ${{ inputs.api_token }}
+        TRANSLATE: ${{ inputs.translate }}
+        PDF: ${{ inputs.pdf }}
+        TRIGGERED_BY: ${{ inputs.triggered_by }}
+      run: |
+        echo "::group::Executando scan DAST API"
+        if [ "${APP_ID}" = "N/A" ]; then
+          RESPONSE=$(curl -sS -X GET "${UPLOADER_URL}/get_apps_new?page=1&items_per_page=10" \
+            -H 'accept: application/json' \
+            -H "Authorization: Bearer ${API_TOKEN}")
+          APP_ID=$(echo "$RESPONSE" | jq -r --arg NAME "${APP_NAME}" '.data[] | select(.name == $NAME) | .id' | head -n 1)
+          if [ -z "$APP_ID" ]; then
+            echo "::error::Aplicação não encontrada após criação. Verifique o app_name informado."
+            exit 1
+          fi
+          echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+        fi
+
+        DATA=$(cat << EOF
+        {
+          "app_id": "${APP_ID}",
+          "scan_version_dast": "${SCAN_VERSION}",
+          "site_url": "${SITE_URL}",
+          "auth_url": "",
+          "logout_url": "",
+          "authexist": false,
+          "userlogin": "",
+          "passwordlogin": "",
+          "api_token": "${API_TARGET_TOKEN}",
+          "translate": "${TRANSLATE}",
+          "pdf": "${PDF}",
+          "triggered_by": "${TRIGGERED_BY}"
+        }
+        EOF
+        )
+
+        RESPONSE=$(curl -sS -X POST "${UPLOADER_URL}/upload-dast" \
+          -H 'accept: application/json' \
+          -H "Authorization: Bearer ${API_TOKEN}" \
+          -H 'Content-Type: application/json' \
+          -d "${DATA}")
+
+        if echo "$RESPONSE" | grep -q 'Upload realizado com sucesso'; then
+          echo "✅ Scan DAST API iniciado: ${SCAN_VERSION}"
+          echo "::notice title=XGuardian DAST API::Scan iniciado para ${SITE_URL}"
+        else
+          ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error // .message // .detail // "Erro desconhecido"')
+          echo "::error title=XGuardian DAST API::Falha ao iniciar scan: ${ERROR_MSG}"
+          echo "::endgroup::"
+          exit 1
+        fi
+        echo "::endgroup::"
+
+    - name: Aguardar finalização do scan
+      shell: bash
+      env:
+        REPORTER_URL: ${{ env.REPORTER_URL }}
+        API_TOKEN: ${{ env.API_TOKEN }}
+        APP_ID: ${{ env.APP_ID }}
+        SCAN_VERSION: ${{ steps.vars.outputs.app_label }}-${{ steps.vars.outputs.short_sha }}
+      run: |
+        echo "::group::⏳ Monitorando status do scan"
+        SCAN_STATUS=""
+        start_time=$(date +%s)
+        echo "🔄 Aguardando finalização (versão: ${SCAN_VERSION}). Verificação a cada 2 minutos."
+
+        check_scan_status() {
+          local response=$(curl -sS -X GET "${REPORTER_URL}/get_scan_pagination/${APP_ID}?page=1&items_per_page=10" \
+            -H 'accept: application/json' -H "Authorization: Bearer ${API_TOKEN}")
+          echo "$response" | jq . >/dev/null 2>&1 || { echo "⚠️ JSON inválido."; return 1; }
+          SCAN_DATA=$(echo "$response" | jq -r --arg v "${SCAN_VERSION}" '.data[] | select(.scanuuid == $v)')
+          if [ -n "$SCAN_DATA" ] && [ "$SCAN_DATA" != "null" ]; then
+            SCAN_STATUS=$(echo "$SCAN_DATA" | jq -r '.scan_status')
+            echo "SCAN_ID=$(echo "$SCAN_DATA" | jq -r '.id')" >> $GITHUB_ENV
+            return 0
+          fi
+          echo "⚠️ Scan não encontrado na resposta."
+          return 1
+        }
+
+        for i in {1..30}; do
+          elapsed=$(( $(date +%s) - start_time ))
+          echo "🔍 Tentativa $i/30 — ${elapsed}s decorridos..."
+          if check_scan_status; then
+            case "$SCAN_STATUS" in
+              FINISHED) echo "✅ Scan finalizado!"; echo "::notice title=XGuardian::Scan finalizado com sucesso!"; break ;;
+              RUNNING|PENDING) echo "⏳ Status: ${SCAN_STATUS}. Próxima verificação em 2 minutos..."; sleep 120 ;;
+              FAILED) echo "::error::❌ Scan falhou durante a execução."; echo "::endgroup::"; exit 1 ;;
+              *) echo "⚠️ Status inesperado: ${SCAN_STATUS}. Aguardando 2 minutos..."; sleep 120 ;;
+            esac
+          else
+            echo "⚠️ Erro ao verificar status. Tentando em 2 minutos..."; sleep 120
+          fi
+        done
+
+        [ "$SCAN_STATUS" = "FINISHED" ] || { echo "::error::❌ Timeout: scan não finalizado após múltiplas verificações."; echo "::endgroup::"; exit 1; }
+        echo "::endgroup::"
+
+    - name: Finalizar outputs
+      id: final_outputs
+      shell: bash
+      env:
+        BASE_URL: ${{ env.BASE_URL }}
+        APP_ID: ${{ env.APP_ID }}
+        SCAN_ID: ${{ env.SCAN_ID }}
+      run: |
+        echo "app_id=${APP_ID}" >> "$GITHUB_OUTPUT"
+        echo "scan_id=${SCAN_ID}" >> "$GITHUB_OUTPUT"
+        echo "scan_url=${BASE_URL}/aplicacoes/${APP_ID}/scans" >> "$GITHUB_OUTPUT"
+
+    - name: Resumo da execução
+      shell: bash
+      if: always()
+      env:
+        APP_ID: ${{ env.APP_ID }}
+        SCAN_ID: ${{ env.SCAN_ID }}
+        APP_NAME: ${{ steps.vars.outputs.app_label }}
+        BASE_URL: ${{ env.BASE_URL }}
+        SITE_URL: ${{ inputs.site_url }}
+      run: |
+        echo "┌─────────────────────────────────────────────────────────┐"
+        echo "│ XGuardian DAST API — Resumo                             │"
+        echo "├─────────────────────────────────────────────────────────┤"
+        echo "│ Aplicação : ${APP_NAME}"
+        echo "│ URL alvo  : ${SITE_URL}"
+        echo "│ App ID    : ${APP_ID:-Não disponível}"
+        echo "│ Scan ID   : ${SCAN_ID:-Não disponível}"
+        [ -n "${APP_ID}" ] && echo "│ URL       : ${BASE_URL}/aplicacoes/${APP_ID}/scans"
+        echo "└─────────────────────────────────────────────────────────┘"

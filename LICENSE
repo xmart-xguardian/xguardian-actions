@@ -1,0 +1,71 @@
+XGuardian GitHub Actions — Licença Proprietária / Proprietary License
+
+Copyright (c) 2026 XMART SOLUTIONS SEGURANCA DIGITAL LTDA - EPP
+CNPJ 02.536.633/0001-44. Todos os direitos reservados / All rights reserved.
+
+================================================================================
+PORTUGUÊS
+================================================================================
+
+Este repositório e todo o seu conteúdo ("Software") são propriedade da
+XMART SOLUTIONS SEGURANCA DIGITAL LTDA - EPP ("Xmart Solutions") e protegidos
+pelas leis de direitos autorais e propriedade intelectual aplicáveis.
+
+CONCESSÃO LIMITADA DE USO
+É concedida permissão não exclusiva, intransferível e revogável para EXECUTAR
+estas GitHub Actions exclusivamente com o propósito de integrar fluxos de
+CI/CD à plataforma XGuardian, mediante credenciais válidas fornecidas pela
+Xmart Solutions.
+
+RESTRIÇÕES
+Sem autorização prévia e por escrito da Xmart Solutions, é expressamente
+proibido:
+  (a) copiar, redistribuir, sublicenciar, vender ou publicar o Software ou
+      qualquer parte dele;
+  (b) modificar, adaptar, traduzir, criar obras derivadas ou incorporar o
+      Software, no todo ou em parte, a qualquer outro produto;
+  (c) utilizar o Software, sua lógica, estrutura ou organização para
+      desenvolver, treinar ou operar produto ou serviço concorrente;
+  (d) realizar engenharia reversa, descompilar ou desmontar o Software para
+      qualquer um dos fins acima.
+
+ISENÇÃO DE GARANTIAS
+O SOFTWARE É FORNECIDO "COMO ESTÁ", SEM GARANTIAS DE QUALQUER NATUREZA,
+EXPRESSAS OU IMPLÍCITAS. A XMART SOLUTIONS NÃO SE RESPONSABILIZA POR QUAISQUER
+DANOS DIRETOS, INDIRETOS, INCIDENTAIS OU CONSEQUENTES DECORRENTES DO USO OU DA
+IMPOSSIBILIDADE DE USO DO SOFTWARE.
+
+Para licenciamento em condições diferentes, contate: suporte@xmartsolutions.com
+
+================================================================================
+ENGLISH
+================================================================================
+
+This repository and all of its contents (the "Software") are the property of
+XMART SOLUTIONS SEGURANCA DIGITAL LTDA - EPP ("Xmart Solutions") and are
+protected by applicable copyright and intellectual property laws.
+
+LIMITED USE GRANT
+A non-exclusive, non-transferable, and revocable permission is granted to RUN
+these GitHub Actions solely for the purpose of integrating CI/CD workflows with
+the XGuardian platform, using valid credentials provided by Xmart Solutions.
+
+RESTRICTIONS
+Without the prior written authorization of Xmart Solutions, it is expressly
+prohibited to:
+  (a) copy, redistribute, sublicense, sell, or publish the Software or any part
+      thereof;
+  (b) modify, adapt, translate, create derivative works, or incorporate the
+      Software, in whole or in part, into any other product;
+  (c) use the Software, its logic, structure, or organization to develop, train,
+      or operate any competing product or service;
+  (d) reverse engineer, decompile, or disassemble the Software for any of the
+      purposes above.
+
+DISCLAIMER OF WARRANTY
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. XMART SOLUTIONS SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING FROM THE USE OR INABILITY TO USE
+THE SOFTWARE.
+
+For licensing under different terms, contact: suporte@xmartsolutions.com
